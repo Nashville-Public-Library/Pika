@@ -9,13 +9,13 @@
 # For Pika discovery partners using Millennium 2011 1.6_3
 
 # this version emails script output as a round finishes
-EMAIL=mark@marmot.org,pascal@marmot.org
+EMAIL=pikaservers@marmot.org
 PIKASERVER=arlington.production
 PIKADBNAME=pika
 OUTPUT_FILE="/var/log/vufind-plus/${PIKASERVER}/full_update_output.log"
 
-MINFILE1SIZE=$((551000000))
-MINFILE2SIZE=$((686000000))
+MINFILE1SIZE=$((774000000))
+MINFILE2SIZE=$((432000000))
 
 # Check for conflicting processes currently running
 function checkConflictingProcesses() {

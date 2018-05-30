@@ -1,20 +1,12 @@
 #!/bin/bash
-
-# full_update.sh
-# Mark Noble, Marmot Library Network
-# James Staub, Nashville Public Library
-# 20150219
 # Script handles all aspects of a full index including extracting data from other systems.
-# Should be called once per day from crontab
-# For Pika discovery partners using Millennium 2011 1.6_3
-
-# this version emails script output as a round finishes
-EMAIL=root@amalthea.marmot.org,wake.pika@wakegov.com
-PIKASERVER=wcpl.production
+# Should be called once per day.  Will interrupt partial reindexing.
+#
+# At the end of the index will email users with the results.
+EMAIL=root
+PIKASERVER=sacramento.test
 PIKADBNAME=pika
 OUTPUT_FILE="/var/log/vufind-plus/${PIKASERVER}/full_update_output.log"
-
-MINFILE1SIZE=$((346000000))
 
 # Check if full_update is already running
 #TODO: Verify that the PID file doesn't get log-rotated
@@ -63,47 +55,13 @@ function checkConflictingProcesses() {
 	echo ${numInitialConflicts};
 }
 
-# Prohibited time ranges - for, e.g., ILS backup
-# JAMES is currently giving all Nashville prohibited times a ten minute buffer
-function checkProhibitedTimes() {
-	start=$(date --date=$1 +%s)
-	stop=$(date --date=$2 +%s)
-	NOW=$(date +%H:%M:%S)
-	NOW=$(date --date=$NOW +%s)
-
-	hasConflicts=0
-	if (( $start < $stop ))
-	then
-		if (( $NOW > $start && $NOW < $stop ))
-		then
-			#echo "Sleeping:" $(($stop - $NOW))
-			sleep $(($stop - $NOW))
-			hasConflicts = 1
-		fi
-	elif (( $start > $stop ))
-	then
-		if (( $NOW < $stop ))
-		then
-			sleep $(($stop - $NOW))
-			hasConflicts = 1
-		elif (( $NOW > $start ))
-		then
-			sleep $(($stop + 86400 - $NOW))
-			hasConflicts = 1
-		fi
-	fi
-	echo ${hasConflicts};
-}
-
-#First make sure that we aren't running at a bad time.  This is really here in case we run manually.
-# since the run in cron is timed to avoid sensitive times.
-# wcpl has no prohibited times (yet)
-#checkProhibitedTimes "23:50" "00:40"
-
 #Check for any conflicting processes that we shouldn't do a full index during.
-#Since we aren't running in a loop, check in the order they run.
-checkConflictingProcesses "overdrive_extract.jar wcpl.production"
-checkConflictingProcesses "reindexer.jar wcpl.production"
+checkConflictingProcesses "sierra_export_api.jar ${PIKASERVER}" >> ${OUTPUT_FILE}
+checkConflictingProcesses "overdrive_extract.jar ${PIKASERVER}" >> ${OUTPUT_FILE}
+checkConflictingProcesses "reindexer.jar ${PIKASERVER}" >> ${OUTPUT_FILE}
+
+#truncate the output file so you don't spend a week debugging an error from a week ago!
+: > $OUTPUT_FILE;
 
 # Back-up Solr Master Index
 mysqldump ${PIKADBNAME} grouped_work_primary_identifiers > /data/vufind-plus/${PIKASERVER}/grouped_work_primary_identifiers.sql
@@ -111,11 +69,18 @@ sleep 2m
 tar -czf /data/vufind-plus/${PIKASERVER}/solr_master_backup.tar.gz /data/vufind-plus/${PIKASERVER}/solr_master/grouped/index/ /data/vufind-plus/${PIKASERVER}/grouped_work_primary_identifiers.sql >> ${OUTPUT_FILE}
 rm /data/vufind-plus/${PIKASERVER}/grouped_work_primary_identifiers.sql
 
-#truncate the output file so you don't spend a week debugging an error from a week ago!
-: > $OUTPUT_FILE;
-
 #Restart Solr
 cd /usr/local/vufind-plus/sites/${PIKASERVER}; ./${PIKASERVER}.sh restart
+
+#Extract from ILS this normally won't update anything since they don't have scheduler, but it could be used manually from time to time.
+/usr/local/vufind-plus/sites/${PIKASERVER}/copySierraExport.sh >> ${OUTPUT_FILE}
+
+#Get the updated volume information not needed for LION since they don't have volumes
+#cd /usr/local/vufind-plus/vufind/cron;
+#nice -n -10 java -jar cron.jar ${PIKASERVER} ExportSierraData >> ${OUTPUT_FILE}
+
+#Extract from Hoopla, this just needs to be done once a day
+cd /usr/local/vufind-plus/vufind/cron;./GetHooplaFromMarmot.sh >> ${OUTPUT_FILE}
 
 #Extract Lexile Data
 cd /data/vufind-plus/; curl --remote-name --remote-time --silent --show-error --compressed --time-cond /data/vufind-plus/lexileTitles.txt https://cassini.marmot.org/lexileTitles.txt
@@ -123,57 +88,35 @@ cd /data/vufind-plus/; curl --remote-name --remote-time --silent --show-error --
 #Extract AR Data
 cd /data/vufind-plus/accelerated_reader; curl --remote-name --remote-time --silent --show-error --compressed --time-cond /data/vufind-plus/accelerated_reader/RLI-ARDataTAB.txt https://cassini.marmot.org/RLI-ARDataTAB.txt
 
-
 #Do a full extract from OverDrive just once a week to catch anything that doesn't
 #get caught in the regular extract
 DAYOFWEEK=$(date +"%u")
-if [ "${DAYOFWEEK}" -eq 6 ];
+if [ "${DAYOFWEEK}" -eq 5 ];
 then
 	cd /usr/local/vufind-plus/vufind/overdrive_api_extract/
 	nice -n -10 java -jar overdrive_extract.jar ${PIKASERVER} fullReload >> ${OUTPUT_FILE}
 fi
 
-#Extract from ILS
-#Copy extracts from SFTP Server
-mount 10.1.2.7:/ftp/wcpl /mnt/ftp
-FILE1=$(find /mnt/ftp/daily_exports -name *.mrc -mtime -1 | sort -n | tail -1)
+#Validate the export
+cd /usr/local/vufind-plus/vufind/cron; java -server -XX:+UseG1GC -jar cron.jar ${PIKASERVER} ValidateMarcExport >> ${OUTPUT_FILE}
 
-if [ -n "$FILE1" ]; then
-	FILE1SIZE=$(wc -c <"$FILE1")
-	if [ $FILE1SIZE -ge $MINFILE1SIZE ]; then
+#Full Regroup
+cd /usr/local/vufind-plus/vufind/record_grouping; java -server -XX:+UseG1GC -jar record_grouping.jar ${PIKASERVER} fullRegroupingNoClear >> ${OUTPUT_FILE}
 
-		echo "Latest file is " $FILE1 >> ${OUTPUT_FILE}
-		DIFF=$(($FILE1SIZE - $MINFILE1SIZE))
-		PERCENTABOVE=$((100 * $DIFF / $MINFILE1SIZE))
-		echo "The export file is $PERCENTABOVE (%) larger than the minimum size check." >> ${OUTPUT_FILE}
+#Full Reindex - since this takes so long, just run the full index once a week and let Sierra Export keep it up to date the rest of the time.
+#MDN 4/12/2018 run everyday while we are changing settings
+#if [ "${DAYOFWEEK}" -eq 5 ];
+#then
 
-		cp $FILE1 /data/vufind-plus/${PIKASERVER}/marc/fullexport.mrc
+cd /usr/local/vufind-plus/vufind/reindexer; nice -n -3 java -server -XX:+UseG1GC -jar reindexer.jar ${PIKASERVER} fullReindex >> ${OUTPUT_FILE}
+cd /usr/local/vufind-plus/vufind/reindexer; java -server -XX:+UseG1GC -jar reindexer.jar ${PIKASERVER} fullReindex >> ${OUTPUT_FILE}
 
-		#Delete full exports older than a week
-		find /mnt/ftp/daily_exports -maxdepth 1 -name *.mrc -mtime +7 -delete
+#else
+#cd /usr/local/vufind-plus/vufind/reindexer; nice -n -3 java -server -XX:+UseG1GC -jar reindexer.jar ${PIKASERVER} >> ${OUTPUT_FILE}
+#fi
 
-		# Delete Continuous Extracts older than 3 days
-		find /mnt/ftp/continuous_exports/processed -maxdepth 1 -name *.mrc -mtime +3 -delete
-
-		umount /mnt/ftp
-
-		#Validate the export
-		cd /usr/local/vufind-plus/vufind/cron; java -server -XX:+UseG1GC -jar cron.jar ${PIKASERVER} ValidateMarcExport >> ${OUTPUT_FILE}
-
-		#Full Regroup
-		cd /usr/local/vufind-plus/vufind/record_grouping; java -server -XX:+UseG1GC -Xmx2G -jar record_grouping.jar ${PIKASERVER} fullRegroupingNoClear >> ${OUTPUT_FILE}
-
-		#Full Reindex
-		cd /usr/local/vufind-plus/vufind/reindexer; java -server -XX:+UseG1GC -Xmx2G -jar reindexer.jar ${PIKASERVER} fullReindex >> ${OUTPUT_FILE}
-
-		else
-			umount /mnt/ftp
-			echo $FILE1 " size " $FILE1SIZE "is less than minimum size :" $MINFILE1SIZE "; Export was not moved to data directory." >> ${OUTPUT_FILE}
-		fi
-else
-	umount /mnt/ftp
-	echo "Did not find a Horizon full export file from the last 24 hours, Full Regrouping & Full Reindexing skipped." >> ${OUTPUT_FILE}
-fi
+# Truncate Continuous Reindexing list of changed items
+cat /dev/null >| /data/vufind-plus/${PIKASERVER}/marc/changed_items_to_process.csv
 
 # Clean-up Solr Logs
 find /usr/local/vufind-plus/sites/default/solr/jetty/logs -name "solr_log_*" -mtime +7 -delete
@@ -186,7 +129,10 @@ cd /usr/local/vufind-plus/sites/${PIKASERVER}; ./${PIKASERVER}.sh restart
 FILESIZE=$(stat -c%s ${OUTPUT_FILE})
 if [[ ${FILESIZE} > 0 ]]
 then
-# send mail
-mail -s "Full Extract and Reindexing - ${PIKASERVER}" $EMAIL < ${OUTPUT_FILE}
+	# send mail
+	mail -s "Full Extract and Reindexing - ${PIKASERVER}" $EMAIL < ${OUTPUT_FILE}
 fi
+
+# Now that script is completed, remove the PID file
+rm $PIDFILE
 

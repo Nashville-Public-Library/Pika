@@ -739,6 +739,7 @@ public class RecordGrouperMain {
 				System.exit(1);
 			}
 
+			// Main Record Grouping Processing
 			if (indexingProfileToRun == null || indexingProfileToRun.equalsIgnoreCase("overdrive")) {
 				groupOverDriveRecords(configIni, vufindConn, econtentConnection, recordGroupingProcessor, explodeMarcsOnly);
 			}
@@ -1194,9 +1195,10 @@ public class RecordGrouperMain {
 				processProfile = true;
 			}
 			if (!processProfile) {
+				logger.debug("Checking if " + curProfile.name + "has had any records marked for regrouping.");
 				if (checkForForcedRegrouping(dbConnection, curProfile.name)) {
 					processProfile = true;
-					addNoteToGroupingLog(curProfile.name + "has no file changes but will be processed because records have been marked for forced regrouping.");
+					addNoteToGroupingLog(curProfile.name + " has no file changes but will be processed because records have been marked for forced regrouping.");
 				}
 			}
 

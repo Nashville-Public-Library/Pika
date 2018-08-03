@@ -128,13 +128,18 @@ class RecordGroupingProcessor {
 		return subfield;
 	}
 
-	private static Pattern overdrivePattern = Pattern.compile("(?i)^http://.*?lib\\.overdrive\\.com/ContentDetails\\.htm\\?id=[\\da-f]{8}-[\\da-f]{4}-[\\da-f]{4}-[\\da-f]{4}-[\\da-f]{12}$");
+//	private static Pattern overdrivePattern = Pattern.compile("(?i)^http://.*?lib\\.overdrive\\.com/ContentDetails\\.htm\\?id=[\\da-f]{8}-[\\da-f]{4}-[\\da-f]{4}-[\\da-f]{4}-[\\da-f]{12}$");
+	//above pattern not strictly valid because urls don't have to contain the lib.overdrive.com
+	private static Pattern overdrivePattern = Pattern.compile("(?i)^http://.*?/ContentDetails\\.htm\\?id=[\\da-f]{8}-[\\da-f]{4}-[\\da-f]{4}-[\\da-f]{4}-[\\da-f]{12}$|^http://link\\.overdrive\\.com");
 	RecordIdentifier getPrimaryIdentifierFromMarcRecord(Record marcRecord, String recordType, boolean doAutomaticEcontentSuppression){
 		RecordIdentifier identifier = null;
 		VariableField recordNumberField = marcRecord.getVariableField(recordNumberTag);
 		//Make sure we only get one ils identifier
+		logger.debug("getPrimaryIdentifierFromMarcRecord - Got record number field");
 		if (recordNumberField != null){
 			if (recordNumberField instanceof DataField) {
+				logger.debug("getPrimaryIdentifierFromMarcRecord - Record number field is a data field");
+
 				DataField curRecordNumberField = (DataField)recordNumberField;
 				Subfield subfieldA = curRecordNumberField.getSubfield('a');
 				if (subfieldA != null && (recordNumberPrefix.length() == 0 || subfieldA.getData().length() > recordNumberPrefix.length())) {
@@ -146,6 +151,7 @@ class RecordGroupingProcessor {
 				}
 			}else{
 				//It's a control field
+				logger.debug("getPrimaryIdentifierFromMarcRecord - Record number field is a control field");
 				ControlField curRecordNumberField = (ControlField)recordNumberField;
 				String recordNumber = curRecordNumberField.getData().trim();
 				identifier = new RecordIdentifier();
@@ -154,6 +160,8 @@ class RecordGroupingProcessor {
 		}
 
 		if (doAutomaticEcontentSuppression) {
+			logger.debug("getPrimaryIdentifierFromMarcRecord - Doing automatic Econtent Suppression");
+
 			//Check to see if the record is an overdrive record
 			if (useEContentSubfield) {
 				boolean allItemsSuppressed = true;
@@ -191,6 +199,8 @@ class RecordGroupingProcessor {
 					for (DataField linkField : linkFields) {
 						if (linkField.getSubfield('u') != null) {
 							//Check the url to see if it is from OverDrive or Hoopla
+							//TODO: no actual hoopla suppression here?
+							//TODO: Would this block sideloaded hoopla?
 							String linkData = linkField.getSubfield('u').getData().trim();
 							if (overdrivePattern.matcher(linkData).matches()) {
 								identifier.setSuppressed(true);

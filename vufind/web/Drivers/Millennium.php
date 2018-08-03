@@ -405,6 +405,10 @@ class Millennium extends ScreenScrapingDriver
 
 			if (isset($patronDump['USERNAME'])){
 				$user->alt_username = $patronDump['USERNAME'];
+			} elseif (isset($patronDump['ALT_ID'])) {
+				// Apparently ALT_ID can also be used for the UserName in Sierra as well.
+				// Hopefully this field doesn't server any other purpose
+				$user->alt_username = $patronDump['ALT_ID'];
 			}
 
 			$numHoldsAvailable = 0;
@@ -564,6 +568,10 @@ class Millennium extends ScreenScrapingDriver
 		return $patronDump;
 	}
 
+	/**
+	 * @param $patron
+	 * @return bool
+	 */
 	public function _curl_login($patron) {
 		global $logger;
 		$loginResult = false;

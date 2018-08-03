@@ -39,7 +39,6 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 	char formatSubfield;
 	char barcodeSubfield;
 	char statusSubfieldIndicator;
-	Pattern statusesToSuppressPattern = null;
 	private Pattern nonHoldableStatuses;
 	char shelvingLocationSubfield;
 	char collectionSubfield;
@@ -51,8 +50,12 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 	private String dateAddedFormat;
 	char locationSubfieldIndicator;
 	private Pattern nonHoldableLocations;
+	Pattern statusesToSuppressPattern = null;
 	Pattern locationsToSuppressPattern = null;
 	Pattern collectionsToSuppressPattern = null;
+	Pattern iTypesToSuppressPattern = null;
+	Pattern iCode2sToSuppressPattern = null;
+	Pattern bCode3sToSuppressPattern = null;
 	char subLocationSubfield;
 	char iTypeSubfield;
 	private Pattern nonHoldableITypes;
@@ -63,6 +66,8 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 	private char totalCheckoutSubfield;
 	boolean useICode2Suppression;
 	char iCode2Subfield;
+	String sierraRecordFixedFieldsTag;
+	char bCode3Subfield;
 	private boolean useItemBasedCallNumbers;
 	private char callNumberPrestampSubfield;
 	private char callNumberSubfield;
@@ -110,6 +115,8 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 			callNumberSubfield = getSubfieldIndicatorFromConfig(indexingProfileRS, "callNumber");
 			callNumberCutterSubfield = getSubfieldIndicatorFromConfig(indexingProfileRS, "callNumberCutter");
 			callNumberPoststampSubfield = getSubfieldIndicatorFromConfig(indexingProfileRS, "callNumberPoststamp");
+			useItemBasedCallNumbers = indexingProfileRS.getBoolean("useItemBasedCallNumbers");
+			volumeSubfield = getSubfieldIndicatorFromConfig(indexingProfileRS, "volume");
 
 			locationSubfieldIndicator = getSubfieldIndicatorFromConfig(indexingProfileRS, "location");
 			try {
@@ -123,14 +130,30 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 			subLocationSubfield = getSubfieldIndicatorFromConfig(indexingProfileRS, "subLocation");
 			shelvingLocationSubfield = getSubfieldIndicatorFromConfig(indexingProfileRS, "shelvingLocation");
 			collectionSubfield = getSubfieldIndicatorFromConfig(indexingProfileRS, "collection");
+
 			String locationsToSuppress = indexingProfileRS.getString("locationsToSuppress");
-			if (locationsToSuppress.length() > 0){
+			if (locationsToSuppress != null && locationsToSuppress.length() > 0){
 				locationsToSuppressPattern = Pattern.compile(locationsToSuppress);
 			}
-
 			String collectionsToSuppress = indexingProfileRS.getString("collectionsToSuppress");
-			if (collectionsToSuppress.length() > 0){
+			if (collectionsToSuppress != null && collectionsToSuppress.length() > 0){
 				collectionsToSuppressPattern = Pattern.compile(collectionsToSuppress);
+			}
+			String statusesToSuppress = indexingProfileRS.getString("statusesToSuppress");
+			if (statusesToSuppress != null && statusesToSuppress.length() > 0){
+				statusesToSuppressPattern = Pattern.compile(statusesToSuppress);
+			}
+			String bCode3sToSuppress = indexingProfileRS.getString("bCode3sToSuppress");
+			if (bCode3sToSuppress != null && bCode3sToSuppress.length() > 0){
+				bCode3sToSuppressPattern = Pattern.compile(bCode3sToSuppress);
+			}
+			String iCode2sToSuppress = indexingProfileRS.getString("iCode2sToSuppress");
+			if (iCode2sToSuppress != null && iCode2sToSuppress.length() > 0){
+				iCode2sToSuppressPattern = Pattern.compile(iCode2sToSuppress);
+			}
+			String iTypesToSuppress = indexingProfileRS.getString("iTypesToSuppress");
+			if (iTypesToSuppress != null && iTypesToSuppress.length() > 0){
+				iTypesToSuppressPattern = Pattern.compile(iTypesToSuppress);
 			}
 
 			itemUrlSubfieldIndicator = getSubfieldIndicatorFromConfig(indexingProfileRS, "itemUrl");
@@ -142,11 +165,6 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 			formatSubfield = getSubfieldIndicatorFromConfig(indexingProfileRS, "format");
 			barcodeSubfield = getSubfieldIndicatorFromConfig(indexingProfileRS, "barcode");
 			statusSubfieldIndicator = getSubfieldIndicatorFromConfig(indexingProfileRS, "status");
-			String statusesToSuppress = indexingProfileRS.getString("statusesToSuppress");
-			if (statusesToSuppress.length() > 0){
-				statusesToSuppressPattern = Pattern.compile(statusesToSuppress);
-			}
-
 			try {
 				String pattern = indexingProfileRS.getString("nonHoldableStatuses");
 				if (pattern != null && pattern.length() > 0) {
@@ -185,11 +203,12 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 			iCode2Subfield = getSubfieldIndicatorFromConfig(indexingProfileRS, "iCode2");
 			useICode2Suppression = indexingProfileRS.getBoolean("useICode2Suppression");
 
+			sierraRecordFixedFieldsTag = indexingProfileRS.getString("sierraRecordFixedFieldsTag");
+			bCode3Subfield = getSubfieldIndicatorFromConfig(indexingProfileRS, "bCode3");
+
 			eContentSubfieldIndicator = getSubfieldIndicatorFromConfig(indexingProfileRS, "eContentDescriptor");
 			useEContentSubfield = eContentSubfieldIndicator != ' ';
 
-			useItemBasedCallNumbers = indexingProfileRS.getBoolean("useItemBasedCallNumbers");
-			volumeSubfield = getSubfieldIndicatorFromConfig(indexingProfileRS, "volume");
 
 
 			orderTag = indexingProfileRS.getString("orderTag");
@@ -321,7 +340,7 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 		try{
 			//If the entire bib is suppressed, update stats and bail out now.
 			if (isBibSuppressed(record)){
-				logger.debug("Bib record " + identifier + " is suppressed skipping");
+				logger.debug("Bib record " + identifier + " is suppressed, skipping");
 				return;
 			}
 
@@ -423,6 +442,19 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 	}
 
 	protected boolean isBibSuppressed(Record record) {
+		if (bCode3sToSuppressPattern != null && sierraRecordFixedFieldsTag != null && sierraRecordFixedFieldsTag.length() > 0 && bCode3Subfield != ' ') {
+			DataField sierraFixedField = record.getDataField(sierraRecordFixedFieldsTag);
+			if (sierraFixedField != null){
+				Subfield suppressionSubfield = sierraFixedField.getSubfield(bCode3Subfield);
+				if (suppressionSubfield != null){
+					String bCode3 = suppressionSubfield.getData().toLowerCase().trim();
+					if (bCode3sToSuppressPattern.matcher(bCode3).matches()){
+						logger.debug("Bib record is suppressed due to BCode3 " + bCode3);
+						return true;
+					}
+				}
+			}
+		}
 		return false;
 	}
 
@@ -636,7 +668,8 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 		if (itemSublocation.length() > 0){
 			itemInfo.setSubLocation(translateValue("sub_location", itemSublocation, identifier));
 		}
-		itemInfo.setITypeCode(getItemSubfieldData(iTypeSubfield, itemField));
+		String iTypeValue = getItemSubfieldData(iTypeSubfield, itemField);
+		itemInfo.setITypeCode(iTypeValue);
 		itemInfo.setIType(translateValue("itype", getItemSubfieldData(iTypeSubfield, itemField), identifier));
 		loadItemCallNumber(record, itemField, itemInfo);
 		itemInfo.setItemIdentifier(getItemSubfieldData(itemRecordNumberSubfieldIndicator, itemField));
@@ -784,8 +817,10 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 		loadDateAdded(recordInfo.getRecordIdentifier(), itemField, itemInfo);
 		getDueDate(itemField, itemInfo);
 
-		itemInfo.setITypeCode(getItemSubfieldData(iTypeSubfield, itemField));
-		itemInfo.setIType(translateValue("itype", getItemSubfieldData(iTypeSubfield, itemField), recordInfo.getRecordIdentifier()));
+		if (iTypeSubfield != ' ') {
+			itemInfo.setITypeCode(getItemSubfieldData(iTypeSubfield, itemField));
+			itemInfo.setIType(translateValue("itype", getItemSubfieldData(iTypeSubfield, itemField), recordInfo.getRecordIdentifier()));
+		}
 
 		double itemPopularity = getItemPopularity(itemField);
 		groupedWork.addPopularity(itemPopularity);
@@ -1112,6 +1147,16 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 					}
 				}
 			}
+			// Sacramento - look in the 932
+			if (callNumber == null) {
+				DataField sacramentoCallNumberField = record.getDataField("932");
+				if (sacramentoCallNumberField != null) {
+					callNumber = "";
+					for (Subfield curSubfield : sacramentoCallNumberField.getSubfields()) {
+						callNumber += " " + curSubfield.getData().trim();
+					}
+				}
+			}
 			if (callNumber != null) {
 
 				if (volume != null && volume.length() > 0 && !callNumber.endsWith(volume)){
@@ -1288,26 +1333,27 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 	protected boolean isItemSuppressed(DataField curItem) {
 		if (statusSubfieldIndicator != ' ') {
 			Subfield statusSubfield = curItem.getSubfield(statusSubfieldIndicator);
-			if (statusSubfield == null) {
+			if (statusSubfield == null) { // suppress if subfield is missing
 				return true;
 			} else {
 				if (statusesToSuppressPattern != null && statusesToSuppressPattern.matcher(statusSubfield.getData()).matches()) {
-
 					return true;
 				}
 			}
 		}
-		Subfield locationSubfield = curItem.getSubfield(locationSubfieldIndicator);
-		if (locationSubfield == null){
-			return true;
-		}else{
-			if (locationsToSuppressPattern != null && locationsToSuppressPattern.matcher(locationSubfield.getData().trim()).matches()){
+		if (locationSubfieldIndicator != ' ') {
+			Subfield locationSubfield = curItem.getSubfield(locationSubfieldIndicator);
+			if (locationSubfield == null){ // suppress if subfield is missing
 				return true;
+			}else{
+				if (locationsToSuppressPattern != null && locationsToSuppressPattern.matcher(locationSubfield.getData().trim()).matches()){
+					return true;
+				}
 			}
 		}
 		if (collectionSubfield != ' '){
 			Subfield collectionSubfieldValue = curItem.getSubfield(collectionSubfield);
-			if (collectionSubfieldValue == null){
+			if (collectionSubfieldValue == null){ // suppress if subfield is missing
 				return true;
 			}else{
 				if (collectionsToSuppressPattern != null && collectionsToSuppressPattern.matcher(collectionSubfieldValue.getData().trim()).matches()){
@@ -1315,6 +1361,31 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 				}
 			}
 		}
+		if (iTypeSubfield != ' '){
+			Subfield iTypeSubfieldValue = curItem.getSubfield(iTypeSubfield);
+			if (iTypeSubfieldValue == null){ // suppress if subfield is missing
+				return true;
+			}else{
+				String iType = iTypeSubfieldValue.getData().trim();
+				if (iTypesToSuppressPattern != null && iTypesToSuppressPattern.matcher(iType).matches()){
+					logger.debug("Item record is suppressed due to Itype " + iType);
+					return true;
+				}
+			}
+		}
+		if (useICode2Suppression && iCode2Subfield != ' ') {
+			Subfield icode2Subfield = curItem.getSubfield(iCode2Subfield);
+			if (icode2Subfield != null) {
+				String iCode2 = icode2Subfield.getData().toLowerCase().trim();
+
+				//Suppress iCode2 codes
+				if (iCode2sToSuppressPattern != null && iCode2sToSuppressPattern.matcher(iCode2).matches()) {
+					logger.debug("Item record is suppressed due to ICode2 " + iCode2);
+					return true;
+				}
+			}
+		}
+
 		return false;
 	}
 
@@ -1393,6 +1464,7 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 		getFormatFromSubjects(record, printFormats);
 		getFormatFromTitle(record, printFormats);
 		getFormatFromDigitalFileCharacteristics(record, printFormats);
+		getGameFormatFrom753(record, printFormats);
 		if (printFormats.size() == 0) {
 			//Only get from fixed field information if we don't have anything yet since the catalogging of
 			//fixed fields is not kept up to date reliably.  #D-87
@@ -1423,7 +1495,9 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 			String formatsString = Util.getCsvSeparatedString(printFormats);
 			if (!formatsToFilter.contains(formatsString)){
 				formatsToFilter.add(formatsString);
-				logger.info("Found more than 1 format for " + recordInfo.getFullIdentifier() + " - " + formatsString);
+				if (fullReindex) {
+					logger.warn("Found more than 1 format for " + recordInfo.getFullIdentifier() + " - " + formatsString);
+				}
 			}
 		}
 		return printFormats;
@@ -1433,6 +1507,8 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 	private void getFormatFromDigitalFileCharacteristics(Record record, LinkedHashSet<String> printFormats) {
 		Set<String> fields = MarcUtil.getFieldList(record, "347b");
 		for (String curField : fields){
+			if (find4KUltraBluRayPhrases(curField))
+				printFormats.add("4KUltraBlu-Ray");
 			if (curField.equalsIgnoreCase("Blu-Ray")){
 				printFormats.add("Blu-ray");
 			}else if (curField.equalsIgnoreCase("DVD video")){
@@ -1498,6 +1574,12 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 		if (printFormats.contains("Blu-ray") && printFormats.contains("VideoDisc")){
 			printFormats.remove("VideoDisc");
 		}
+		if (printFormats.contains("4KUltraBlu-Ray") && printFormats.contains("VideoDisc")){
+			printFormats.remove("VideoDisc");
+		}
+		if (printFormats.contains("Blu-ray") && printFormats.contains("4KUltraBlu-Ray")){
+			printFormats.remove("Blu-ray");
+		}
 		if (printFormats.contains("SoundDisc") && printFormats.contains("SoundRecording")){
 			printFormats.remove("SoundRecording");
 		}
@@ -1555,15 +1637,27 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 		if (printFormats.contains("LargePrint") && printFormats.contains("Manuscript")){
 			printFormats.remove("Manuscript");
 		}
-		if (printFormats.contains("Kinect") || printFormats.contains("XBox360")  || printFormats.contains("Xbox360")
+		if (printFormats.contains("Wii") && printFormats.contains("WiiU")){
+			printFormats.remove("Wii");
+		}
+		if (printFormats.contains("3DS") && printFormats.contains("NintendoDS")){
+			printFormats.remove("NintendoDS");
+		}
+		if (printFormats.contains("PlayStation4") && printFormats.contains("PlayStation3")){
+			printFormats.remove("PlayStation3");
+		}
+		if (printFormats.contains("Kinect") || printFormats.contains("Xbox360")
 				|| printFormats.contains("XBoxOne") || printFormats.contains("PlayStation")
 				|| printFormats.contains("PlayStation3") || printFormats.contains("PlayStation4")
 				|| printFormats.contains("Wii") || printFormats.contains("WiiU")
-				|| printFormats.contains("3DS") || printFormats.contains("WindowsGame")){
+				|| printFormats.contains("NintendoDS") || printFormats.contains("3DS")
+				|| printFormats.contains("WindowsGame")){
 			printFormats.remove("Software");
 			printFormats.remove("Electronic");
 			printFormats.remove("CDROM");
+			printFormats.remove("DVD");
 			printFormats.remove("Blu-ray");
+			printFormats.remove("4KUltraBlu-Ray");
 		}
 	}
 
@@ -1648,23 +1742,30 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 	private void getFormatFromEdition(Record record, Set<String> result) {
 		// Check for large print book (large format in 650, 300, or 250 fields)
 		// Check for blu-ray in 300 fields
-		DataField edition = record.getDataField("250");
-		if (edition != null) {
-			if (edition.getSubfield('a') != null) {
-				String editionData = edition.getSubfield('a').getData().toLowerCase();
-				if (editionData.contains("large type") || editionData.contains("large print")) {
-					result.add("LargePrint");
-				}else if (editionData.contains("go reader")) {
+//		DataField edition = record.getDataField("250");
+		List<DataField> editions = record.getDataFields("250");
+		for (DataField edition : editions) {
+			if (edition != null) {
+				if (edition.getSubfield('a') != null) {
+					String editionData = edition.getSubfield('a').getData().toLowerCase();
+					if (editionData.contains("large type") || editionData.contains("large print")) {
+						result.add("LargePrint");
+					} else if (editionData.contains("go reader")) {
 						result.add("GoReader");
-				}else {
-					String gameFormat = getGameFormatFromValue(editionData);
-					if (gameFormat != null) {
-						result.add(gameFormat);
+//				} else if (find4KUltraBluRayPhrases(editionData)) {
+//					result.add("4KUltraBlu-Ray");
+						// not sure this is a good idea yet. see D-2432
+					} else {
+						String gameFormat = getGameFormatFromValue(editionData);
+						if (gameFormat != null) {
+							result.add(gameFormat);
+						}
 					}
 				}
 			}
 		}
 	}
+
 
 	private void getFormatFromPhysicalDescription(Record record, Set<String> result) {
 		@SuppressWarnings("unchecked")
@@ -1681,6 +1782,8 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 						String physicalDescriptionData = subfield.getData().toLowerCase();
 						if (physicalDescriptionData.contains("large type") || physicalDescriptionData.contains("large print")) {
 							result.add("LargePrint");
+						} else if (find4KUltraBluRayPhrases(physicalDescriptionData)) {
+							result.add("4KUltraBlu-Ray");
 						} else if (physicalDescriptionData.contains("bluray") || physicalDescriptionData.contains("blu-ray")) {
 							result.add("Blu-ray");
 						} else if (physicalDescriptionData.contains("computer optical disc")) {
@@ -1702,22 +1805,26 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 
 	private void getFormatFromNotes(Record record, Set<String> result) {
 		// Check for formats in the 538 field
-		DataField sysDetailsNote2 = record.getDataField("538");
-		if (sysDetailsNote2 != null) {
-			if (sysDetailsNote2.getSubfield('a') != null) {
-				String sysDetailsValue = sysDetailsNote2.getSubfield('a').getData().toLowerCase();
-				String gameFormat = getGameFormatFromValue(sysDetailsValue);
-				if (gameFormat != null){
-					result.add(gameFormat);
-				}else{
-					if (sysDetailsValue.contains("playaway")) {
-						result.add("Playaway");
-					} else if (sysDetailsValue.contains("bluray") || sysDetailsValue.contains("blu-ray")) {
-						result.add("Blu-ray");
-					} else if (sysDetailsValue.contains("dvd")) {
-						result.add("DVD");
-					} else if (sysDetailsValue.contains("vertical file")) {
-						result.add("VerticalFile");
+		List<DataField> systemDetailsNotes = record.getDataFields("538");
+		for (DataField sysDetailsNote2 : systemDetailsNotes) {
+			if (sysDetailsNote2 != null) {
+				if (sysDetailsNote2.getSubfield('a') != null) {
+					String sysDetailsValue = sysDetailsNote2.getSubfield('a').getData().toLowerCase();
+					String gameFormat = getGameFormatFromValue(sysDetailsValue);
+					if (gameFormat != null) {
+						result.add(gameFormat);
+					} else {
+						if (sysDetailsValue.contains("playaway")) {
+							result.add("Playaway");
+						} else if (find4KUltraBluRayPhrases(sysDetailsValue)) {
+							result.add("4KUltraBlu-Ray");
+						} else if (sysDetailsValue.contains("bluray") || sysDetailsValue.contains("blu-ray")) {
+							result.add("Blu-ray");
+						} else if (sysDetailsValue.contains("dvd")) {
+							result.add("DVD");
+						} else if (sysDetailsValue.contains("vertical file")) {
+							result.add("VerticalFile");
+						}
 					}
 				}
 			}
@@ -1759,6 +1866,20 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 		}
 	}
 
+	private void getGameFormatFrom753(Record record, Set<String> result) {
+		// Check for formats in the 753 field "System Details Access to Computer Files"
+		DataField sysDetailsTag = record.getDataField("753");
+		if (sysDetailsTag != null) {
+			if (sysDetailsTag.getSubfield('a') != null) {
+				String sysDetailsValue = sysDetailsTag.getSubfield('a').getData().toLowerCase();
+				String gameFormat = getGameFormatFromValue(sysDetailsValue);
+				if (gameFormat != null){
+					result.add(gameFormat);
+				}
+			}
+		}
+	}
+
 	private String getGameFormatFromValue(String value) {
 		if (value.contains("kinect sensor")) {
 			return "Kinect";
@@ -1776,8 +1897,14 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 			return "WiiU";
 		} else if (value.contains("nintendo wii")) {
 			return "Wii";
+		} else if (value.contains("wii")) { // make sure this check comes after checks for "wii u"
+			return "Wii";
 		} else if (value.contains("nintendo 3ds")) {
 			return "3DS";
+		} else if (value.contains("nintendo switch")) {
+			return "NintendoSwitch";
+		} else if (value.contains("nintendo ds")) {
+			return "NintendoDS";
 		} else if (value.contains("directx")) {
 			return "WindowsGame";
 		}else{
@@ -2225,5 +2352,21 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 		}
 		return translatedValues;
 
+	}
+
+	private Boolean find4KUltraBluRayPhrases(String subject) {
+		subject = subject.toLowerCase();
+		return
+			subject.contains("4k ultra hd blu-ray") ||
+			subject.contains("4k ultra hd bluray") ||
+			subject.contains("4k ultrahd blu-ray") ||
+			subject.contains("4k ultrahd bluray") ||
+			subject.contains("4k uh blu-ray") ||
+			subject.contains("4k uh bluray") ||
+			subject.contains("4k ultra high-definition blu-ray") ||
+			subject.contains("4k ultra high-definition bluray") ||
+			subject.contains("4k ultra high definition blu-ray") ||
+			subject.contains("4k ultra high definition bluray")
+			;
 	}
 }

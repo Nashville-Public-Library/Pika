@@ -164,6 +164,7 @@ abstract class IIIRecordProcessor extends IlsRecordProcessor{
 			if (isHoldableUnscoped.isHoldable()) {
 				String locationCode;
 				if (loanRulesAreBasedOnCheckoutLocation()) {
+					// This block is obsolete. loanRulesAreBasedOnCheckoutLocation() returns true only for NashvilleRecordProcessor, which is an obsolete driver that is for the Millennium ILS (not newer Sierra) pascal 7-17-2018
 					//Loan rule determiner by lending location
 					locationCode = curScope.getIlsCode();
 				}else{
@@ -202,6 +203,7 @@ abstract class IIIRecordProcessor extends IlsRecordProcessor{
 	protected BookabilityInformation isItemBookable(ItemInfo itemInfo, Scope curScope, BookabilityInformation isBookableUnscoped) {
 		String locationCode;
 		if (loanRulesAreBasedOnCheckoutLocation()) {
+			// This block is obsolete. loanRulesAreBasedOnCheckoutLocation() returns true only for NashvilleRecordProcessor, which is an obsolete driver that is for the Millennium ILS (not newer Sierra) pascal 7-17-2018
 			//Loan rule determiner by lending location
 			locationCode = curScope.getIlsCode();
 		}else{
@@ -388,12 +390,6 @@ abstract class IIIRecordProcessor extends IlsRecordProcessor{
 				if (recordInfo.getNumCopiesOnOrder() > 0 && !hasTangibleItems) {
 					groupedWork.addKeywords("On Order");
 					groupedWork.addKeywords("Coming Soon");
-					/*//Don't do this anymore, see D-1893
-					HashSet<String> additionalOrderSubjects = new HashSet<>();
-					additionalOrderSubjects.add("On Order");
-					additionalOrderSubjects.add("Coming Soon");
-					groupedWork.addTopic(additionalOrderSubjects);
-					groupedWork.addTopicFacet(additionalOrderSubjects);*/
 				}
 			}
 		}else{

@@ -157,9 +157,6 @@
 			{if $google_included_languages}
 			, includedLanguages: '{$google_included_languages}'
 			{/if}
-					{if $trackTranslation}
-					, gaTrack: true, gaId: '{$googleAnalyticsId}'
-					{/if}
 		{literal}
 				}, 'google_translate_element');
 				}

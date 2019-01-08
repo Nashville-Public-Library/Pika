@@ -141,10 +141,13 @@ class RecordGroupingProcessor {
 				logger.debug("getPrimaryIdentifierFromMarcRecord - Record number field is a data field");
 
 				DataField curRecordNumberField = (DataField)recordNumberField;
-				Subfield subfieldA = curRecordNumberField.getSubfield('a');
+				Subfield subfieldA = curRecordNumberField.getSubfield('c');
+				//TODO:  This shouldn't be committed to a normal branch!!!  this is just a hack to group aspencat records.
 				if (subfieldA != null && (recordNumberPrefix.length() == 0 || subfieldA.getData().length() > recordNumberPrefix.length())) {
-					if (curRecordNumberField.getSubfield('a').getData().substring(0, recordNumberPrefix.length()).equals(recordNumberPrefix)) {
-						String recordNumber = curRecordNumberField.getSubfield('a').getData().trim();
+//					if (curRecordNumberField.getSubfield('a').getData().substring(0, recordNumberPrefix.length()).equals(recordNumberPrefix)) {
+					//TODO: TEMP!!! below shouldn't be kept in production code!!
+					if (curRecordNumberField.getSubfield('c').getData().substring(0, recordNumberPrefix.length()).equals(recordNumberPrefix)) {
+						String recordNumber = curRecordNumberField.getSubfield('c').getData().trim();
 						identifier = new RecordIdentifier();
 						identifier.setValue(recordType, recordNumber);
 					}

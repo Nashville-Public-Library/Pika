@@ -14,7 +14,7 @@ PIKASERVER=addison.production
 PIKADBNAME=pika
 OUTPUT_FILE="/var/log/vufind-plus/${PIKASERVER}/full_update_output.log"
 
-MINFILE1SIZE=$((256000000))
+MINFILE1SIZE=$((259000000))
 
 # Check if full_update is already running
 #TODO: Verify that the PID file doesn't get log-rotated
@@ -180,8 +180,8 @@ then
 
 			cp $FILE1 /data/vufind-plus/${PIKASERVER}/marc/fullexport.mrc
 
-			#Delete full exports older than a week
-			find /mnt/ftp/ -name fullexport*.mrc -mtime +7 -delete
+			#Delete full exports older than 3 days
+			find /mnt/ftp/ -name fullexport*.mrc -mtime +3 -delete
 			umount /mnt/ftp
 
 		#Validate the export

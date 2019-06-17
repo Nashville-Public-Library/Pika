@@ -1,4 +1,5 @@
-{strip}
+{*{debug}*}
+<!-- NB smarty tag strip will break the jquery below that allows user to navigate among selfreg screens. Don't use strip. -->
 <h3>{translate text='Register for a Library Card'}</h3>
 <div class="page">
 		{if (isset($selfRegResult) && $selfRegResult.success)}
@@ -21,7 +22,7 @@
 				{if $selfRegistrationFormMessage}
 					{$selfRegistrationFormMessage}
 				{else}
-					This page allows you to register as a patron of our library online. You will have limited privileges initially.
+					This page allows you to register as a patron of our library.
 				{/if}
 			</div>
 			{if (isset($selfRegResult))}
@@ -35,40 +36,108 @@
 				</div>
 			{/if}
 			<div id="selfRegistrationFormContainer">
+<script type="text/javascript">
+
+{literal}
+
+; NASHVILLESELFREG = {
+	name: 'NASHVILLESELFREG',
+
+// MOVE A CARD TO THE TOP
+	top: function (cardValue) {
+		$("*[id*=propertyRow").each(function() {
+			$(this).hide();
+		});
+		$("#propertyRow" + cardValue).show();
+		$("#propertyRow" + cardValue).find('div').each(function() {
+			$(this).show();
+		});
+		$("#propertyRowNashvilleSelfRegNav").show();
+	}		
+}
+
+
+	$( document ).ready(function() {
+{/literal}
+		const inLibrary		= "{$inLibrary}";
+		const activeIp		= "{$activeIp}";
+		const physicalLocation	= "{$physicalLocation}";
+{literal}
+
+
+// MOVE RECAPTCHA TO "CREATE ACCOUNT" CARD 8
+		$("div.g-recaptcha").parent().css("background-color", "yellow").appendTo("#card_body_PaPeR_8>div.panel-body").children("div.g-recaptcha").unwrap();
+
+// INITIAL FLOW: IN-LIBRARY OR ONLINE?
+		if (inLibrary == "1") { 
+			NASHVILLESELFREG.top("1A");
+		} else {
+			NASHVILLESELFREG.top("1B");
+		}
+
+// SET NAV: 1A
+		$("#canShowIDSelect").on('change', function() {
+			if( $("#canShowIDSelect").val() == 'Yes' && $("#authenticateAddressSelect").val() == 'Yes') {
+				$("#continue").on('click', function() {
+					NASHVILLESELFREG.top("3");
+				});
+			} else {
+				$("#continue").on('click', function() {
+					NASHVILLESELFREG.top("2A");
+				});
+			}
+		});
+
+		$("#authenticateAddressSelect").on('change', function() {
+			if( $("#canShowIDSelect").val() == 'Yes' && $("#authenticateAddressSelect").val() == 'Yes') {
+				$("#continue").on('click', function() {
+					NASHVILLESELFREG.top("3");
+				});
+			} else {
+				$("#continue").on('click', function() {
+					NASHVILLESELFREG.top("2A");
+				});
+			}
+		});
+
+// SET NAV: 1B
+		$("#eligibleOBRSelect").on('change', function() {
+			if( $("#eligibleOBRSelect").val() == 'Yes') {
+				$("#continue").on('click', function() {
+					NASHVILLESELFREG.top("3");
+				});
+			} else {
+				$("#continue").on('click', function() {
+					NASHVILLESELFREG.top("2B");
+				});
+			}
+		});
+
+// SET NAV: 3
+		$("#birthDate").on('change', function() {
+			var today = new Date();
+			var birthDate = new Date($("#birthDate").val());
+			var age = today.getFullYear() - birthDate.getFullYear();
+			var m = today.getMonth() - birthDate.getMonth();
+			if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+				age--;
+			}
+			alert("age: " + age);
+//			if ( inLibrary == 1 && $("#canShowIDSelect").val() == 'Yes' && $("#authenticateAddressSelect").val() == 'Yes') {
+//				if ( age < 13 ) {
+//					patronType = 2;
+//				}
+
+		});			
+
+
+	});
+
+{/literal}
+</script>
+
 				{$selfRegForm}
+
 			</div>
 		{/if}
 </div>
-{/strip}
-{if $promptForBirthDateInSelfReg}
-<script type="text/javascript">
-	{* #borrower_note is birthdate for anythink *}
-	{* this is bootstrap datepicker, not jquery ui *}
-	{literal}
-	$(document).ready(function(){
-		$('input.datePika').datepicker({
-			format: "mm-dd-yyyy"
-			,endDate: "+0d"
-			,startView: 2
-		});
-	});
-	{/literal}
-	{* Pin Validation for CarlX, Sirsi *}
-	{literal}
-	if ($('#pin').length > 0 && $('#pin1').length > 0) {
-		$("#objectEditor").validate({
-			rules: {
-				pin: {
-					minlength: 4
-				},
-				pin1: {
-					minlength: 4,
-					equalTo: "#pin"
-				}
-			}
-		});
-	}
-	{/literal}
-
-</script>
-{/if}

@@ -827,23 +827,262 @@ class CarlX extends SIP2Driver{
 
 	public function getSelfRegistrationFields() {
 		global $library;
-		$fields = array();
-		$fields[] = array('property'=>'firstName',   'type'=>'text', 'label'=>'First Name', 'description'=>'Your first name', 'maxLength' => 40, 'required' => true);
-		$fields[] = array('property'=>'middleName',  'type'=>'text', 'label'=>'Middle Name', 'description'=>'Your middle name', 'maxLength' => 40, 'required' => false);
-		$fields[] = array('property'=>'lastName',   'type'=>'text', 'label'=>'Last Name', 'description'=>'Your last name', 'maxLength' => 40, 'required' => true);
 		if ($library && $library->promptForBirthDateInSelfReg){
 			$birthDateMin = date('Y-m-d', strtotime('-113 years'));
 			$birthDateMax = date('Y-m-d', strtotime('-13 years'));
-			$fields[] = array('property'=>'birthDate', 'type'=>'date', 'label'=>'Date of Birth (MM-DD-YYYY)', 'description'=>'Date of birth', 'min'=>$birthDateMin, 'max'=>$birthDateMax, 'maxLength' => 10, 'required' => true);
 		}
-		$fields[] = array('property'=>'address',     'type'=>'text', 'label'=>'Mailing Address', 'description'=>'Mailing Address', 'maxLength' => 128, 'required' => true);
-		$fields[] = array('property'=>'city',        'type'=>'text', 'label'=>'City', 'description'=>'City', 'maxLength' => 48, 'required' => true);
-		$fields[] = array('default'=>'TN','property'=>'state',       'type'=>'text', 'label'=>'State', 'description'=>'State', 'maxLength' => 2, 'required' => true);
-		$fields[] = array('property'=>'zip',         'type'=>'text', 'label'=>'Zip Code', 'description'=>'Zip Code', 'maxLength' => 32, 'required' => true);
-		$fields[] = array('property'=>'phone',       'type'=>'text',  'label'=>'Primary Phone', 'description'=>'Primary Phone', 'maxLength'=>15, 'required'=>true);
-		$fields[] = array('property'=>'email',       'type'=>'email', 'label'=>'E-Mail', 'description'=>'E-Mail', 'maxLength' => 128, 'required' => true);
-//		$fields[] = array('property'=>'pin',         'type'=>'pin',   'label'=>'Pin', 'description'=>'Your desired 4-digit pin', 'maxLength' => 4, 'size' => 4, 'required' => true);
-//		$fields[] = array('property'=>'pin1',        'type'=>'pin',   'label'=>'Confirm Pin', 'description'=>'Re-type your desired 4-digit pin', 'maxLength' => 4, 'size' => 4, 'required' => true);
+		$fields = array();
+		$fields[] = array('property'=>'patronTypes',
+				'type'=>'enum',
+				'label'=>'Patron Types',
+				'description'=>'Library-assigned account category',
+				'values' => [
+						1=>'Adult',
+						2=>'Child',
+						// 3=>'NR (full, fee) - Adult',
+						6=>'Courtesy',
+						10=>'Online Registration',
+						11=>'Teen',
+						// 14=>'NR (full, fee) - Teen',
+						// 15=>'NR (full, fee) - Child',
+						20=>'Kid Power Card',
+						43=>'NR (limited, no fee) - Child',
+						44=>'NR (limited, no fee) - Teen',
+						45=>'NR (limited, no fee) - Adult'
+					],
+				'default' => 10,
+				'required' => true);
+		$fields[] = array('property'=>'1A',
+				'type'=>'card',
+				'label'=>'PaPeR 1A',
+				'expandByDefault'=> true, 
+				'properties'=>array(
+					'canShowID'		=> array('property'=>'canShowID',
+									'type'=>'enum',	
+									'label'=>'Can you show an approved form of ID (e.g., driver’s license) at the desk?',
+									'values' => [''=>'','No'=>'No','Yes'=>'Yes'],
+									'default' =>''),
+			 		'authenticateAddress'	=> array('property'=>'authenticateAddress',
+									'type'=>'enum',	
+									'label'=>'Does this ID display your current address or do you have proof of your current address to show at the desk (recent postmarked mail, etc.)?',
+									'values' => [''=>'','No'=>'No','Yes'=>'Yes'],
+									'default' =>'')
+				)
+			);
+		$fields[] = array('property'=>'1B',
+				'type'=>'card',
+				'label'=>'PaPeR 1B',
+				'expandByDefault'=> true, 
+				'properties'=>array(
+					'eligibleOBR'		=> array('property'=>'eligibleOBR',
+									'type'=>'enum',	
+									'label'=>'Are you over the age of 13 and do you reside in Davidson County?',
+									'values' => [''=>'','No'=>'No','Yes'=>'Yes'],
+									'default' =>'')
+				)
+			);
+		$fields[] = array('property'=>'2A',
+				'type'=>'card',
+				'label'=>'PaPeR 2A',
+				'expandByDefault'=> true, 
+				'instructions'=>'Photo ID and proof of residence are required to get a regular use account.<br>We will create a Welcome account for you today that will allow you to check out up to 3 items.<br>Please bring photo ID and proof of Davidson County residence within 45 days to convert this account into a full privilege card.',
+			);
+		$fields[] = array('property'=>'2B',
+				'type'=>'card',
+				'label'=>'PaPeR 2B',
+				'expandByDefault'=> true, 
+				'instructions'=>'Free online access is reserved for residents of Davidson County who are over the age of 13 only. Out-of-county residents in our service area may apply online for a free limited use account, which allows checkout of physical materials from all NPL branches. Children under 13 who live in Davidson County may apply for an account online and gain access to it by visiting an NPL branch with their guarantor.<br><br>Out of county residents in our service area may obtain full access to both physical and electronic re-sources by paying a $10 annual fee at any NPL service desk (cash or check only).',
+			);
+		$fields[] = array('property'=>'2C',
+				'type'=>'card',
+				'label'=>'PaPeR 2C',
+				'expandByDefault'=> true, 
+				'instructions'=>'This IP address has attempted to create too many accounts or is not in our service area.'
+			);
+		$fields[] = array('property'=>'3',
+				'type'=>'card',
+				'label'=>'PaPeR 3',
+				'expandByDefault'=> true, 
+				'properties'=>array(
+					'firstName'		=> array('property'=>'firstName',
+									'type'=>'text',
+									'label'=>'First Name',
+									'description'=>'Your first name',
+									'maxLength' => 40,
+									'required' => true),
+					'middleName'		=> array('property'=>'middleName',
+									'type'=>'text',
+									'label'=>'Middle Name',
+									'description'=>'Your middle name',
+									'maxLength' => 40,
+									'required' => false),
+					'lastName'		=> array('property'=>'lastName',
+									'type'=>'text',
+									'label'=>'Last Name',
+									'description'=>'Your last name',
+									'maxLength' => 40,
+									'required' => true),
+					'birthDate'		=> array('property'=>'birthDate',
+									'type'=>'date',
+									'label'=>'Date of Birth (MM/DD/YYYY)',
+									'description'=>'Your date of birth',
+									'maxLength' => 10,
+									'required' => true),
+					'address'		=> array('property'=>'address',
+									'type'=>'text',
+									'label'=>'Mailing Address',
+									'description'=>'Mailing Address',
+									'maxLength' => 128,
+									'required' => true),
+					'city'			=> array('property'=>'city',
+									'type'=>'text',
+									'label'=>'City',
+									'description'=>'City',
+									'maxLength' => 48,
+									'required' => true),
+					'state'			=> array('property'=>'state',
+									'type'=>'text',
+									'label'=>'State',
+									'description'=>'State',
+									'maxLength' => 2,
+									'required' => true,
+									'default'=>'TN'),
+					'zip'			=> array('property'=>'zip',
+									'type'=>'text',
+									'label'=>'Zip Code',
+									'description'=>'Zip Code',
+									'maxLength' => 32,
+									'required' => true),
+					'phone'			=> array('property'=>'phone',
+									'type'=>'text',
+									'label'=>'Primary Phone',
+									'description'=>'Primary Phone',
+									'maxLength' => 15,
+									'required' => true),
+					'email'			=> array('property'=>'email',
+									'type'=>'email',
+									'label'=>'E-Mail',
+									'description'=>'E-Mail',
+									'maxLength' => 128,
+									'required' => true)
+				)
+			);
+		$fields[] = array('property'=>'4',
+				'type'=>'card',
+				'label'=>'PaPeR 4',
+				'expandByDefault'=> true, 
+				'properties'=>array(
+					'guarantorFirstName'	=> array('property'=>'guarantorFirstName',
+									'type'=>'text',
+									'label'=>'Guarantor First Name',
+									'description'=>'Guarantor first name',
+									'maxLength' => 40,
+									'required' => true),
+					'guarantorMiddleName'	=> array('property'=>'guarantorMiddleName',
+									'type'=>'text',
+									'label'=>'Guarantor Middle Name',
+									'description'=>'Guarantor middle name',
+									'maxLength' => 40,
+									'required' => false),
+					'guarantorLastName'	=> array('property'=>'guarantorLastName',
+									'type'=>'text',
+									'label'=>'Guarantor Last Name',
+									'description'=>'Guarantor last name',
+									'maxLength' => 40,
+									'required' => true),
+					'guarantorBirthDate'	=> array('property'=>'guarantorBirthDate',
+									'type'=>'date',
+									'label'=>'Guarantor Date of Birth (MM/DD/YYYY)',
+									'description'=>'Guarantor Date of birth',
+									'maxLength' => 10,
+									'required' => true),
+					'guarantorRelationship'	=> array('property'=>'guarantorRelationship',	
+									'type'=>'enum',
+									'label'=>'Guarantor Relationship',
+									'description'=>'Guarantor Relationship',
+									'values' => ['Parent'=>'Parent',
+										'Grandparent'=>'Grandparent',
+										'Sibling'=>'Sibling',
+										'Legal guardian'=>'Legal guardian'],
+									'required' => true)
+				)
+			);
+		$fields[] = array('property'=>'5',
+				'type'=>'card',
+				'label'=>'PaPeR 5',
+				'expandByDefault'=> true, 
+				'properties'=>array(
+					'duplicateAccount'	=> array('property'=>'duplicateAccount',
+									'type'=>'enum',
+									'label'=>'Our records indicate that you already have an account with the Nashville Public Library. <br>Replacement cards are free! <br>Please visit any library service desk or <a href="https://library.nashville.org/contact-us">contact the library</a>',
+									'values' => ['No','Yes'],
+									'required' => true)
+				)
+			);
+		$fields[] = array('property'=>'7B',
+				'type'=>'card',
+				'label'=>'PaPeR 7B',
+				'expandByDefault'=> true, 
+				'properties'=>array(
+					'approvedUserFirstName'	=> array('property'=>'approvedUserFirstName',
+									'type'=>'text',
+									'label'=>'Approved User First Name',
+									'description'=>'Approved User first name',
+									'maxLength' => 40,
+									'required' => true),
+					'approvedUserMiddleName'=> array('property'=>'approvedUserMiddleName',
+									'type'=>'text',
+									'label'=>'Approved User Middle Name',
+									'description'=>'Approved User middle name',
+									'maxLength' => 40,
+									'required' => false),
+					'approvedUserLastName'	=> array('property'=>'approvedUserLastName',
+									'type'=>'text',
+									'label'=>'Approved User Last Name',
+									'description'=>'Approved User last name',
+									'maxLength' => 40,
+									'required' => true),
+					'approvedUserBirthDate'	=> array('property'=>'approvedUserBirthDate',
+									'type'=>'date',
+									'label'=>'Approved User Date of Birth (MM/DD/YYYY)',
+									'description'=>'Approved User Date of birth',
+									'maxLength' => 10, 
+									'required' => true)
+				)
+			);
+		$fields[] = array('property'=>'8',
+				'type'=>'card',
+				'label'=>'PaPeR 8',
+				'expandByDefault'=> true, 
+				'properties'=>array(
+					'emailOptIn'	=> array('property'=>'emailOptIn',
+									'type'=>'enum',
+									'label'=>'I would like to receive news and marketing material via email from Nashville Public Library',
+									'values' => ['No','Yes'],
+									'required' => true),
+					'createAccount'	=> array('property'=>'createAccount',
+									'instructions'=>'By pressing Create Account you agree to be responsible for all library materials checked on this account.')
+				)
+			);
+
+$altBty10 = 'Success! Thank you for creating an account with the Nashville Public Library. <br>Please present photo ID and proof of Davidson County address at any Nashville Public library location (link to https:// library.nashville.org/locations) within 45 days to receive a physical card and ensure uninterrupted service. <br>An email with an account number and account information has been sent to the email provided.';
+		$fields[] = array('property'=>'9AB',
+				'type'=>'card',
+				'label'=>'PaPeR 9AB',
+				'expandByDefault'=> true, 
+				'properties'=>array(
+					'success'	=> array('property'=>'success',
+									'instructions'=>'Success! Thank you for creating an account with the Nashville Public Library.<br> Please visit any Nashville Public Library service desk within 45 days with photo ID and proof of ad- dress to receive your physical library card and PIN. <br>Addresses outside of Davidson County will receive limited use cards which allow checkout of physical items only. These can be converted to full use cards by paying a $10 annual fee.'),
+					'demographic'	=> array('property'=>'demographic',
+									'type'=>'enum',
+									'label'=>'I would like to help Nashville Public Library by providing demographic information',
+									'values' => ['No','Yes'],
+									'required' => true)
+				)
+			);
+		$fields[] = array('property'=>'NashvilleSelfRegNav',
+				'type'=>'NashvilleSelfRegNav');
+
 		return $fields;
 	}
 
@@ -862,19 +1101,34 @@ class CarlX extends SIP2Driver{
 
 			$tempPatronID = $configArray['Catalog']['selfRegIDPrefix'] . str_pad($currentPatronIDNumber, $configArray['Catalog']['selfRegIDNumberLength'], '0', STR_PAD_LEFT);
 
-			$firstName  = trim(strtoupper($_REQUEST['firstName']));
-			$middleName = trim(strtoupper($_REQUEST['middleName']));
-			$lastName   = trim(strtoupper($_REQUEST['lastName']));
-			$address    = trim(strtoupper($_REQUEST['address']));
-			$city       = trim(strtoupper($_REQUEST['city']));
-			$state      = trim(strtoupper($_REQUEST['state']));
-			$zip        = trim($_REQUEST['zip']);
-			$email      = trim(strtoupper($_REQUEST['email']));
-//			$pin        = trim($_REQUEST['pin']);
-//			$pin1       = trim($_REQUEST['pin1']);
-			$phone      = preg_replace('/^(\d{3})(\d{3})(\d{4})$/','$1-$2-$3',preg_replace('/\D/','',trim($_REQUEST['phone'])));
 
-//			if (!empty($pin) && !empty($pin1) && $pin == $pin1) {
+			$step			= $_REQUEST['step'];
+			$inLibrary		= $_REQUEST['inLibrary'];
+			$patronType		= $_REQUEST['patronType'];
+			$canShowID		= $_REQUEST['canShowID'];
+			$authenticateAddress	= $_REQUEST['authenticateAddress'];
+			$eligibleOBR		= $_REQUEST['eligibleOBR'];
+
+			$firstName		= trim(strtoupper($_REQUEST['firstName']));
+			$middleName		= trim(strtoupper($_REQUEST['middleName']));
+			$lastName		= trim(strtoupper($_REQUEST['lastName']));
+			$address		= trim(strtoupper($_REQUEST['address']));
+			$city			= trim(strtoupper($_REQUEST['city']));
+			$state			= trim(strtoupper($_REQUEST['state']));
+			$zip			= trim($_REQUEST['zip']);
+			$email			= trim(strtoupper($_REQUEST['email']));
+			$phone			= preg_replace('/^(\d{3})(\d{3})(\d{4})$/','$1-$2-$3',preg_replace('/\D/','',trim($_REQUEST['phone'])));
+
+			$guarantorFirstName	= trim(strtoupper($_REQUEST['guarantorFirstName']));
+			$guarantorMiddleName	= trim(strtoupper($_REQUEST['guarantorMiddleName']));
+			$guarantorLastName	= trim(strtoupper($_REQUEST['guarantorLastName']));
+			$guarantorBirthDate	= strtotime(str_replace('-','/',trim($_REQUEST['guarantorBirthDate'])));
+			$guarantorRelationship	= trim(strtoupper($_REQUEST['guarantorRelationship']));
+
+			$approvedUserFirstName	= trim(strtoupper($_REQUEST['approvedUserFirstName']));
+			$approvedUserMiddleName	= trim(strtoupper($_REQUEST['approvedUserMiddleName']));
+			$approvedUserLastName	= trim(strtoupper($_REQUEST['approvedUserLastName']));
+			$approvedUserBirthDate	= strtotime(str_replace('-','/',trim($_REQUEST['approvedUserBirthDate'])));
 
 				// DENY REGISTRATION TO KNOWN BAD IP 12.204.223.250
 				if ($active_ip == "12.204.223.250") {
@@ -944,7 +1198,6 @@ class CarlX extends SIP2Driver{
 				$request->Patron->Addresses->Address->State      = $state;
 				$request->Patron->Addresses->Address->PostalCode = $zip;
 				$request->Patron->PreferredAddress		= 'Primary';
-//				$request->Patron->PatronPIN			= $pin;
 				$request->Patron->Phone1			= $phone;
 				$request->Patron->RegistrationDate		= date('c'); // Registration Date, format ISO 8601
 				$request->Patron->LastActionDate		= date('c'); // Registration Date, format ISO 8601
@@ -1022,37 +1275,6 @@ class CarlX extends SIP2Driver{
 
 								$result = $this->doSoapRequest('getPatronInformation', $request);
 
-/*
-// PATRON-CREATED PIN IS BEING OVERWRITTEN BY CARL.X LAST 4 DIGITS OF PHONE NUMBER
-								// Check That the Pin was set  (the create Patron call does not seem to set the Pin)
-								if ($result && isset($result->Patron) && $result->Patron->PatronPIN == '') {
-									$request->Patron->PatronPIN = $pin;
-									$result = $this->doSoapRequest('updatePatron', $request, $this->patronWsdl, $this->genericResponseSOAPCallOptions);
-									if (is_null($result)) {
-										$result = $this->soapClient->__getLastResponse();
-										if ($result) {
-											$unxml = new XML_Unserializer();
-											$unxml->unserialize($result);
-											$response = $unxml->getUnserializedData();
-
-											if ($response) {
-												$success = stripos($response['SOAP-ENV:Body']['ns3:GenericResponse']['ns3:ResponseStatuses']['ns2:ResponseStatus']['ns2:ShortMessage'], 'Success') !== false;
-												if (!$success) {
-													global $logger;
-													$logger->log('Unable to set pin for Self-Registered user on update call after initial creation call.', PEAR_LOG_ERR);
-													// The Pin will be an empty.
-													// Return Success Any way, because the account was created.
-													return array(
-														'success' => true,
-														'barcode' => $tempPatronID,
-													);
-												}
-											}
-										}
-									}
-								}
-*/
-
 								// FOLLOWING SUCCESSFUL SELF REGISTRATION, INPUT PATRON IP ADDRESS INTO PATRON RECORD NOTE
 								$request 			= new stdClass();
 								$request->Modifiers		= '';
@@ -1117,10 +1339,6 @@ class CarlX extends SIP2Driver{
 						$logger->log('CarlX ILS gave no response when attempting to create Patron.', PEAR_LOG_ERR);
 					}
 				}
-//			} else {
-//				global $logger;
-//				$logger->log('CarlX Self Registration Form was passed bad data for a user\'s pin.', PEAR_LOG_WARNING);
-//			}
 		} else {
 			global $logger;
 			$logger->log('No value for "last_selfreg_patron_id" set in Variables table. Can not self-register patron in CarlX Driver.', PEAR_LOG_ERR);

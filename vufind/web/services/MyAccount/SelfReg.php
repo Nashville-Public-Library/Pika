@@ -73,7 +73,7 @@ class SelfReg extends Action {
 
 		$interface->assign('submitUrl', $configArray['Site']['path'] . '/MyAccount/SelfReg');
 		$interface->assign('structure', $selfRegFields);
-		$interface->assign('saveButtonText', 'Register');
+		$interface->assign('saveButtonText', 'Create Account');
 
 		// Set up captcha to limit spam self registrations
 		if (isset($configArray['ReCaptcha']['publicKey'])) {

@@ -1,6 +1,4 @@
-<link rel="stylesheet" type="text/css" href="/jquery.steps.css" />
-<link rel="stylesheet" type="text/css" href="/jquery.steps.examples.css" />
-<link rel="stylesheet" type="text/css" href="/main.css" />
+<link rel="stylesheet" type="text/css" href="/interface/themes/nashville_resp/css/selfReg.css" />
 <script src="/jquery.steps.min.js"></script>
 
 <form id="NashvilleSelfReg" action="#">

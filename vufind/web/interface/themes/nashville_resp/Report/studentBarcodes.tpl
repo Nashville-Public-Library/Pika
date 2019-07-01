@@ -63,7 +63,7 @@ document.addEventListener("DOMContentLoaded", function(event) {
 	width: 2.625in !important; 
 	height: 1in !important; 
 	margin: 0in .125in 0in 0in !important;
-	padding: .125in 0 0 .375in !important;
+	padding: .125in 0 0 .475in !important;
 	float: left;
 	display: inline-block;
 	text-align: left;

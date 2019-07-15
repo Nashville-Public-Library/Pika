@@ -8,7 +8,7 @@ PIKASERVER=marmot.production
 PIKADBNAME=pika
 OUTPUT_FILE="/var/log/vufind-plus/${PIKASERVER}/full_update_output.log"
 
-MINFILE1SIZE=$((5040000000))
+MINFILE1SIZE=$((5050000000))
 
 # Check for conflicting processes currently running
 function checkConflictingProcesses() {
@@ -171,8 +171,6 @@ then
 		#Full Regroup
 		cd /usr/local/vufind-plus/vufind/record_grouping; java -server -XX:+UseG1GC -Xmx6G -jar record_grouping.jar ${PIKASERVER} fullRegroupingNoClear >> ${OUTPUT_FILE}
 
-		#TODO: Determine if we should do a partial update from the ILS and OverDrive before running the reindex to grab last minute changes
-
 		#Full Reindex
 		cd /usr/local/vufind-plus/vufind/reindexer; nice -n -3 java -server -XX:+UseG1GC -jar reindexer.jar ${PIKASERVER} fullReindex >> ${OUTPUT_FILE}
 
@@ -201,6 +199,14 @@ find /usr/local/vufind-plus/sites/default/solr/jetty/logs -name "solr_gc_log_*" 
 
 #Restart Solr
 cd /usr/local/vufind-plus/sites/${PIKASERVER}; ./${PIKASERVER}.sh restart
+
+# Check that the complete DPLA feed file is up to date
+OLDDPLAFEED=$(find /usr/local/vufind-plus/vufind/web -name "dplaFeed.json" -mtime +30)
+if [ -n "$OLDDPLAFEED" ]
+then
+	echo "The DPLA feed file is older than 30 days : "
+	echo "$OLDDPLAFEED"
+fi
 
 #Email results
 FILESIZE=$(stat -c%s ${OUTPUT_FILE})

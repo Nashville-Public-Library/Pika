@@ -151,7 +151,7 @@ public class SierraExportAPIMain {
 				logger.warn("No accounting profile found for this indexing profile, falling back to config ini setting.");
 				sierraUrl = PikaConfigIni.trimTrailingPunctuation(PikaConfigIni.getIniValue("Catalog", "url"));
 			}
-			apiBaseUrl = sierraUrl /*+ ":443"*/ + "/iii/sierra-api/v" + apiVersion;
+			apiBaseUrl = sierraUrl + "/iii/sierra-api/v" + apiVersion;
 		} catch (SQLException e) {
 			logger.error("Error retrieving account profile for " + indexingProfile.name, e);
 		}
@@ -167,7 +167,7 @@ public class SierraExportAPIMain {
 		}
 
 		//API timing doesn't require Sierra Field Mapping
-		if (indexingProfile.callNumberExportFieldTag == null || indexingProfile.callNumberExportFieldTag.isEmpty()) {
+		if (indexingProfile.APIItemCallNumberFieldTag == null || indexingProfile.APIItemCallNumberFieldTag.isEmpty()) {
 			logger.error("Sierra Field Mappings need to be set.");
 			System.exit(0);
 		}
@@ -176,6 +176,13 @@ public class SierraExportAPIMain {
 //		exportPath = indexingProfile.marcPath;
 //		File changedBibsFile = new File(exportPath + "/changed_bibs_to_process.csv");
 
+
+		Boolean running = systemVariables.getBooleanValuedVariable("sierra_extract_running");
+		if (running != null && running){
+			logger.warn("System variable 'sierra_extract_running' is already set to true. This may indicator another Sierra Extract process is running.");
+		} else {
+			updatePartialExtractRunning(true);
+		}
 		Integer minutesToProcessFor = PikaConfigIni.getIntIniValue("Catalog", "minutesToProcessExport");
 		minutesToProcessExport = (minutesToProcessFor == null) ? 5 : minutesToProcessFor;
 
@@ -248,6 +255,7 @@ public class SierraExportAPIMain {
 			logger.error("Unable to update sierra api export log with completion time.", e);
 		}
 
+		updatePartialExtractRunning(false);
 
 		try {
 			//Close the connection
@@ -456,7 +464,6 @@ public class SierraExportAPIMain {
 		getNewItemsFromAPI(lastExtractDateTimeFormatted);
 		getChangedItemsFromAPI(lastExtractDateTimeFormatted);
 		getDeletedItemsFromAPI(lastExtractDateFormatted);
-
 	}
 
 	/**
@@ -1329,36 +1336,36 @@ public class SierraExportAPIMain {
 									allFieldContent.append(curVarField.getString("content"));
 								}
 
-								if (fieldTag.equals(indexingProfile.callNumberExportFieldTag)) {
+								if (fieldTag.equals(indexingProfile.APIItemCallNumberFieldTag)) {
 									if (subfields != null) {
-										//									hadCallNumberVarField = true;
+										//hadCallNumberVarField = true;
 										for (int k = 0; k < subfields.length(); k++) {
 											JSONObject subfield = subfields.getJSONObject(k);
 											String     tag      = subfield.getString("tag");
 											String     content  = subfield.getString("content");
-											if (indexingProfile.callNumberPrestampExportSubfield.length() > 0 && tag.equalsIgnoreCase(indexingProfile.callNumberPrestampExportSubfield)) {
+											if (indexingProfile.APIItemCallNumberPrestampSubfield.length() > 0 && tag.equalsIgnoreCase(indexingProfile.APIItemCallNumberPrestampSubfield)) {
 												itemField.addSubfield(marcFactory.newSubfield(indexingProfile.callNumberPrestampSubfield, content));
-											} else if (indexingProfile.callNumberExportSubfield.length() > 0 && tag.equalsIgnoreCase(indexingProfile.callNumberExportSubfield)) {
+											} else if (indexingProfile.APIItemCallNumberSubfield.length() > 0 && tag.equalsIgnoreCase(indexingProfile.APIItemCallNumberSubfield)) {
 												itemField.addSubfield(marcFactory.newSubfield(indexingProfile.callNumberSubfield, content));
-											} else if (indexingProfile.callNumberCutterExportSubfield.length() > 0 && tag.equalsIgnoreCase(indexingProfile.callNumberCutterExportSubfield)) {
+											} else if (indexingProfile.APIItemCallNumberCutterSubfield.length() > 0 && tag.equalsIgnoreCase(indexingProfile.APIItemCallNumberCutterSubfield)) {
 												itemField.addSubfield(marcFactory.newSubfield(indexingProfile.callNumberCutterSubfield, content));
-											} else if (indexingProfile.callNumberPoststampExportSubfield.length() > 0 && tag.equalsIgnoreCase(indexingProfile.callNumberPoststampExportSubfield)) {
+											} else if (indexingProfile.APICallNumberPoststampSubfield.length() > 0 && tag.equalsIgnoreCase(indexingProfile.APICallNumberPoststampSubfield)) {
 												itemField.addSubfield(marcFactory.newSubfield(indexingProfile.callNumberPoststampSubfield, content));
 											}
-											//										else {
-											//											logger.warn("For item " + getfullSierraItemId(itemId) + " (" + getfullSierraBibId(id) + "), unhandled call number subfield " + tag + " with content : "+ content + "; " + curVarField.toString());
+											//else {
+											//	logger.warn("For item " + getfullSierraItemId(itemId) + " (" + getfullSierraBibId(id) + "), unhandled call number subfield " + tag + " with content : "+ content + "; " + curVarField.toString());
 											//This is to catch any settings not handled in the field mappings.
-											//										}
+											//}
 										}
 									} else {
 										String content = curVarField.getString("content");
 										itemField.addSubfield(marcFactory.newSubfield(indexingProfile.callNumberSubfield, content));
 									}
-								} else if (indexingProfile.volumeExportFieldTag.length() > 0 && fieldTag.equals(indexingProfile.volumeExportFieldTag)) {
+								} else if (indexingProfile.APIItemVolumeFieldTag.length() > 0 && fieldTag.equals(indexingProfile.APIItemVolumeFieldTag)) {
 									itemField.addSubfield(marcFactory.newSubfield(indexingProfile.volume, allFieldContent.toString()));
-								} else if (indexingProfile.urlExportFieldTag.length() > 0 && fieldTag.equals(indexingProfile.urlExportFieldTag)) {
+								} else if (indexingProfile.APIItemURLFieldTag.length() > 0 && fieldTag.equals(indexingProfile.APIItemURLFieldTag)) {
 									itemField.addSubfield(marcFactory.newSubfield(indexingProfile.itemUrl, allFieldContent.toString()));
-								} else if (indexingProfile.eContentExportFieldTag.length() > 0 && fieldTag.equals(indexingProfile.eContentExportFieldTag)) {
+								} else if (indexingProfile.APIItemEContentExportFieldTag.length() > 0 && fieldTag.equals(indexingProfile.APIItemEContentExportFieldTag)) {
 									itemField.addSubfield(marcFactory.newSubfield(indexingProfile.eContentDescriptor, allFieldContent.toString()));
 								}
 								//							else if (
@@ -1408,47 +1415,56 @@ public class SierraExportAPIMain {
 				ArrayList<Long> processedIds = new ArrayList<>();
 				String          dataFileUrl  = marcResults.getString("file");
 				String          marcData     = getMarcFromSierraApiURL(dataFileUrl, debug);
-				logger.debug("Got marc record file");
-				MarcReader marcReader = new MarcPermissiveStreamReader(new ByteArrayInputStream(marcData.getBytes(StandardCharsets.UTF_8)), true, true);
-				while (marcReader.hasNext()) {
-					try {
-						logger.debug("Starting to process the next marc Record");
+				if (marcData != null) {
+					logger.debug("Got marc record file");
+					byte[]               bytes      = marcData.getBytes(StandardCharsets.UTF_8);
+					MarcReader           marcReader;
+					try (ByteArrayInputStream input = new ByteArrayInputStream(bytes)) {
+						marcReader = new MarcPermissiveStreamReader(input, true, true, "UTF8");
 
-						Record marcRecord = marcReader.next();
-						logger.debug("Got the next marc Record data");
+						while (marcReader.hasNext()) {
+							try {
+								logger.debug("Starting to process the next marc Record");
 
-						RecordIdentifier recordIdentifier = recordGroupingProcessor.getPrimaryIdentifierFromMarcRecord(marcRecord, indexingProfile.name, indexingProfile.doAutomaticEcontentSuppression);
-						String           identifier       = recordIdentifier.getIdentifier();
-						logger.debug("Writing marc record for " + identifier);
+								Record marcRecord = marcReader.next();
+								logger.debug("Got the next marc Record data");
 
-						writeMarcRecord(marcRecord, identifier);
-						logger.debug("Wrote marc record for " + identifier);
+								RecordIdentifier recordIdentifier = recordGroupingProcessor.getPrimaryIdentifierFromMarcRecord(marcRecord, indexingProfile.name, indexingProfile.doAutomaticEcontentSuppression);
+								String           identifier       = recordIdentifier.getIdentifier();
+								logger.debug("Writing marc record for " + identifier);
 
-						//Setup the grouped work for the record.  This will take care of either adding it to the proper grouped work
-						//or creating a new grouped work
-						if (!recordGroupingProcessor.processMarcRecord(marcRecord, true)) {
-							logger.warn(identifier + " was suppressed during record grouping");
-						} else {
-							logger.debug("Finished record grouping for " + identifier);
+								writeMarcRecord(marcRecord, identifier);
+								logger.debug("Wrote marc record for " + identifier);
+
+								//Setup the grouped work for the record.  This will take care of either adding it to the proper grouped work
+								//or creating a new grouped work
+								if (!recordGroupingProcessor.processMarcRecord(marcRecord, true)) {
+									logger.warn(identifier + " was suppressed during record grouping");
+								} else {
+									logger.debug("Finished record grouping for " + identifier);
+								}
+								Long shortId = Long.parseLong(identifier.substring(2, identifier.length() - 1));
+								processedIds.add(shortId);
+								logger.debug("Processed " + identifier);
+							} catch (MarcException e) {
+								logger.info("Error loading marc record from file, will load manually. ", e);
+							}
 						}
-						Long shortId = Long.parseLong(identifier.substring(2, identifier.length() - 1));
-						processedIds.add(shortId);
-						logger.debug("Processed " + identifier);
-					} catch (MarcException mre) {
-						logger.info("Error loading marc record from file, will load manually");
-					}
-				}
-				for (Long id : idArray) {
-					if (!processedIds.contains(id)) {
-						if (!updateMarcAndRegroupRecordId(id)) {
-							//Don't fail the entire process.  We will just reprocess next time the export runs
-							logger.debug("Processing " + id + " failed");
-							addNoteToExportLog("Processing " + id + " failed");
-							bibsWithErrors.add(id);
-							//allPass = false;
-						} else {
-							logger.debug("Processed " + id);
+						for (Long id : idArray) {
+							if (!processedIds.contains(id)) {
+								if (!updateMarcAndRegroupRecordId(id)) {
+									//Don't fail the entire process.  We will just reprocess next time the export runs
+									logger.debug("Processing " + id + " failed");
+									addNoteToExportLog("Processing " + id + " failed");
+									bibsWithErrors.add(id);
+									//allPass = false;
+								} else {
+									logger.debug("Processed " + id);
+								}
+							}
 						}
+					} catch (Exception e){
+						logger.error("Error occurring while processing binary MARC files from the API.", e);
 					}
 				}
 			} else {
@@ -1820,14 +1836,14 @@ public class SierraExportAPIMain {
 						logger.info("Received response code " + responseCode + " calling sierra API " + sierraUrl);
 						// Get any errors
 						response = getTheResponse(conn.getErrorStream());
-						logger.info("  Finished reading response : " + response.toString());
+						logger.info("Finished reading response : " + response.toString());
 					}
 				} else {
 					if (logErrors) {
 						logger.error("Received error " + responseCode + " calling sierra API " + sierraUrl);
 						// Get any errors
 						response = getTheResponse(conn.getErrorStream());
-						logger.error("  Finished reading response : " + response.toString());
+						logger.error("Finished reading response : " + response.toString());
 					}
 				}
 
@@ -1870,8 +1886,7 @@ public class SierraExportAPIMain {
 						logger.error("Received error " + conn.getResponseCode() + " calling sierra API " + sierraUrl);
 						// Get any errors
 						response = getTheResponse(conn.getErrorStream());
-						logger.error("  Finished reading response");
-						logger.error(response.toString());
+						logger.error("Finished reading response : " + response.toString());
 					}
 				}
 
@@ -1886,6 +1901,10 @@ public class SierraExportAPIMain {
 			}
 		}
 		return null;
+	}
+
+	private static void updatePartialExtractRunning(boolean running) {
+		systemVariables.setVariable("sierra_extract_running", Boolean.toString(running));
 	}
 
 	private static JSONObject getMarcJSONFromSierraApiURL(String sierraUrl) {

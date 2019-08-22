@@ -387,13 +387,13 @@
 						<div class="panel-body">
 							
 							{if ($ils == 'CarlX') && $loggedIn && (array_key_exists('opacAdmin', $userRoles) || array_key_exists('libraryAdmin', $userRoles) || array_key_exists('locationReports', $userRoles))}
-								<div class="adminMenuLink"><a href="https://catalog.library.nashville.org/patronBarcodes.html">Patron Barcode Generator</a></div>
+								<div class="adminMenuLink"><a href="https://catalog.library.nashville.org/patronBarcodes.html">Individual Barcode Generator</a></div>
 							{/if}
 							{if ($ils == 'CarlX' || $ils == 'Sierra') && $loggedIn && (array_key_exists('opacAdmin', $userRoles) || array_key_exists('libraryAdmin', $userRoles) || array_key_exists('locationReports', $userRoles))}
 								<div class="adminMenuLink{if $action == "StudentReport"} active{/if}"><a href="{$path}/Report/StudentReport">School Overdue Report</a></div>
 							{/if}
 							{if ($ils == 'CarlX') && $loggedIn && (array_key_exists('opacAdmin', $userRoles) || array_key_exists('libraryAdmin', $userRoles) || array_key_exists('locationReports', $userRoles))}
-								<div class="adminMenuLink{if $action == "StudentBarcodes"} active{/if}"><a href="{$path}/Report/StudentBarcodes">School Barcodes Report</a></div>
+								<div class="adminMenuLink{if $action == "StudentBarcodes"} active{/if}"><a href="{$path}/Report/StudentBarcodes">Student Barcodes by Class</a></div>
 							{/if}
 						</div>
 					</div>

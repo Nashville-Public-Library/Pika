@@ -25,7 +25,7 @@ import java.util.regex.Pattern;
  */
 abstract class IlsRecordProcessor extends MarcRecordProcessor {
 	protected boolean fullReindex;
-	private String individualMarcPath;
+	private   String  individualMarcPath;
 	String marcPath;
 	String profileType;
 
@@ -34,35 +34,35 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 	String formatSource;
 	String specifiedFormat;
 	String specifiedFormatCategory;
+	int    specifiedFormatBoost;
 	String formatDeterminationMethod = "bib";
 	String matTypesToIgnore          = "";
-	int    specifiedFormatBoost;
 	char   formatSubfield;
 	char   barcodeSubfield;
 	char   statusSubfieldIndicator;
 	private Pattern nonHoldableStatuses;
-	char shelvingLocationSubfield;
-	char collectionSubfield;
-	char dueDateSubfield;
+	char             shelvingLocationSubfield;
+	char             collectionSubfield;
+	char             dueDateSubfield;
 	SimpleDateFormat dueDateFormatter;
-	private char lastCheckInSubfield;
+	private char   lastCheckInSubfield;
 	private String lastCheckInFormat;
-	private char dateCreatedSubfield;
+	private char   dateCreatedSubfield;
 	private String dateAddedFormat;
 	char locationSubfieldIndicator;
 	private Pattern nonHoldableLocations;
-	Pattern statusesToSuppressPattern = null;
-	Pattern locationsToSuppressPattern = null;
+	Pattern statusesToSuppressPattern    = null;
+	Pattern locationsToSuppressPattern   = null;
 	Pattern collectionsToSuppressPattern = null;
-	Pattern iTypesToSuppressPattern = null;
-	Pattern iCode2sToSuppressPattern = null;
-	Pattern bCode3sToSuppressPattern = null;
-	char subLocationSubfield;
-	char iTypeSubfield;
+	Pattern iTypesToSuppressPattern      = null;
+	Pattern iCode2sToSuppressPattern     = null;
+	Pattern bCode3sToSuppressPattern     = null;
+	char    subLocationSubfield;
+	char    iTypeSubfield;
 	private Pattern nonHoldableITypes;
-	boolean useEContentSubfield = false;
-	char eContentSubfieldIndicator;
+	boolean useEContentSubfield            = false;
 	boolean doAutomaticEcontentSuppression = false;
+	char    eContentSubfieldIndicator;
 	private char lastYearCheckoutSubfield;
 	private char ytdCheckoutSubfield;
 	private char totalCheckoutSubfield;
@@ -72,11 +72,11 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 	String  materialTypeSubField;
 	char    bCode3Subfield;
 	private boolean useItemBasedCallNumbers;
-	private char callNumberPrestampSubfield;
-	private char callNumberSubfield;
-	private char callNumberCutterSubfield;
-	private char callNumberPoststampSubfield;
-	private char volumeSubfield;
+	private char    callNumberPrestampSubfield;
+	private char    callNumberSubfield;
+	private char    callNumberCutterSubfield;
+	private char    callNumberPoststampSubfield;
+	private char    volumeSubfield;
 	char itemRecordNumberSubfieldIndicator;
 	private char itemUrlSubfieldIndicator;
 	boolean suppressItemlessBibs;
@@ -305,22 +305,19 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 
 	private Record loadMarcRecordFromDisk(String identifier) {
 		Record record = null;
-		String shortId = identifier.replace(".", "");
-		while (shortId.length() < 9){
-			shortId = "0" + shortId;
-		}
 		String individualFilename = getFileForIlsRecord(identifier);
 		try {
 			byte[] fileContents = Util.readFileBytes(individualFilename);
 			//FileInputStream inputStream = new FileInputStream(individualFile);
-			InputStream inputStream = new ByteArrayInputStream(fileContents);
-			//Don't need to use a permissive reader here since we've written good individual MARCs as part of record grouping
-			//Actually we do need to since we can still get MARC records over the max length.
-			MarcReader marcReader = new MarcPermissiveStreamReader(inputStream, true, false, "UTF-8");
-			if (marcReader.hasNext()) {
-				record = marcReader.next();
+			try (InputStream inputStream = new ByteArrayInputStream(fileContents)) {
+				//Don't need to use a permissive reader here since we've written good individual MARCs as part of record grouping
+				//Actually we do need to since we can still get MARC records over the max length.
+				// Assuming we have correctly saved the individual MARC file in utf-8 encoding; and should handle in utf-8 as well
+				MarcReader marcReader = new MarcPermissiveStreamReader(inputStream, true, true, "UTF8");
+				if (marcReader.hasNext()) {
+					record = marcReader.next();
+				}
 			}
-			inputStream.close();
 		}catch (FileNotFoundException fe){
 			logger.warn("Could not find MARC record at " + individualFilename + " for " + identifier);
 		} catch (Exception e) {
@@ -720,24 +717,9 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 			//Item-level 856 (Gets exported into the itemUrlSubfield)
 			itemInfo.seteContentUrl(urlSubfield.getData().trim());
 		} else {
-			//Check the 856 tag to see if there is a link there
-			List<DataField> urlFields = MarcUtil.getDataFields(record, "856");
-			for (DataField urlField : urlFields) {
-				//load url into the item
-				if (urlField.getSubfield('u') != null) {
-					//Try to determine if this is a resource or not.
-					if (urlField.getIndicator1() == '4' || urlField.getIndicator1() == ' ' || urlField.getIndicator1() == '0' || urlField.getIndicator1() == '7') {
-						if (urlField.getIndicator2() != '2') {
-							itemInfo.seteContentUrl(urlField.getSubfield('u').getData().trim());
-							break;
-						}
-					}
-
-				}
-			}
+			loadEContentUrl(record, itemInfo, identifier);
 
 		}
-
 		itemInfo.setDetailedStatus("Available Online");
 
 		return relatedRecord;
@@ -1377,20 +1359,26 @@ abstract class IlsRecordProcessor extends MarcRecordProcessor {
 	/**
 	 * Determine Record Format(s)
 	 */
-	public void loadPrintFormatInformation(RecordInfo recordInfo, Record record){
+	public void loadPrintFormatInformation(RecordInfo recordInfo, Record record) {
 		//We should already have formats based on the items
-		if (formatSource.equals("item") && formatSubfield != ' ' && recordInfo.hasItemFormats()){
+		if (formatSource.equals("item") && formatSubfield != ' ' && recordInfo.hasItemFormats()) {
 			return;
 		}
 
-		if (formatSource.equals("specified")){
-			HashSet<String> translatedFormats = new HashSet<>();
-			translatedFormats.add(specifiedFormat);
-			HashSet<String> translatedFormatCategories = new HashSet<>();
-			translatedFormatCategories.add(specifiedFormatCategory);
-			recordInfo.addFormats(translatedFormats);
-			recordInfo.addFormatCategories(translatedFormatCategories);
-			recordInfo.setFormatBoost(specifiedFormatBoost);
+		if (formatSource.equals("specified")) {
+			if (!specifiedFormat.isEmpty()) {
+				HashSet<String> translatedFormats = new HashSet<>();
+				translatedFormats.add(specifiedFormat);
+				HashSet<String> translatedFormatCategories = new HashSet<>();
+				translatedFormatCategories.add(specifiedFormatCategory);
+				recordInfo.addFormats(translatedFormats);
+				recordInfo.addFormatCategories(translatedFormatCategories);
+				recordInfo.setFormatBoost(specifiedFormatBoost);
+			} else {
+				logger.error("Specified Format is not set in indexing profile. Can not use specified format for format determination. Fall back to bib format determination.");
+				loadPrintFormatFromBib(recordInfo, record);
+
+			}
 		} else {
 			if (formatDeterminationMethod.equalsIgnoreCase("matType")) {
 				loadPrintFormatFromMatType(recordInfo, record);

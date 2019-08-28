@@ -25,7 +25,7 @@ class Record_AJAX extends AJAXHandler {
 
 	use MARC_AJAX_Basic;
 
-	protected $methodsThatRepondWithJSONUnstructured = array(
+	protected $methodsThatRespondWithJSONUnstructured = array(
 		'getPlaceHoldForm',
 		'getPlaceHoldEditionsForm',
 		'getBookMaterialForm',
@@ -54,7 +54,6 @@ class Record_AJAX extends AJAXHandler {
 
 // Appears deprecated.  GroupedWork version appears to be the version still in use.  pascal 4/26/2019
 	function GetProspectorInfo(){
-		require_once ROOT_DIR . '/Drivers/marmot_inc/Prospector.php';
 		global $configArray;
 		global $interface;
 		$id = $_REQUEST['id'];
@@ -73,6 +72,7 @@ class Record_AJAX extends AJAXHandler {
 			PEAR_Singleton::raiseError(new PEAR_Error('Record Does Not Exist'));
 		}
 
+		require_once ROOT_DIR . '/InterLibraryLoanDrivers/Prospector.php';
 		$prospector = new Prospector();
 
 		$searchTerms = array(

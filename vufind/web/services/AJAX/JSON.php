@@ -22,13 +22,13 @@ require_once ROOT_DIR . '/AJAXHandler.php';
 
 class AJAX_JSON extends AJAXHandler {
 
-	protected $methodsThatRepondWithJSONUnstructured = array(
+	protected $methodsThatRespondWithJSONUnstructured = array(
 		'getAutoLogoutPrompt',
 		'getReturnToHomePrompt',
 		'getPayFinesAfterAction',
 	);
 
-	protected $methodsThatRepondWithJSONResultWrapper = array(
+	protected $methodsThatRespondWithJSONResultWrapper = array(
 		'getUserLists',
 		'loginUser',
 //		'trackEvent',
@@ -94,8 +94,8 @@ class AJAX_JSON extends AJAXHandler {
 		return array(
 			'success'                => true,
 			'name'                   => ucwords($user->firstname . ' ' . $user->lastname),
-			'phone'                  => $user->phone,
-			'email'                  => $user->email,
+//			'phone'                  => $user->phone,
+//			'email'                  => $user->email,
 			'homeLocation'           => isset($patronHomeBranch) ? $patronHomeBranch->code : '',
 			'homeLocationId'         => isset($patronHomeBranch) ? $patronHomeBranch->locationId : '',
 			'enableMaterialsRequest' => MaterialsRequest::enableMaterialsRequest(true),

@@ -22,18 +22,38 @@ abstract class CombinedResultSection extends DB_DataObject{
 		if ($configArray['DPLA']['enabled']){
 			$validResultSources['dpla'] = 'DPLA';
 		}
-		$validResultSources['eds'] = 'EBSCO EDS';
+		$validResultSources['eds']  = 'EBSCO EDS';
 		$validResultSources['pika'] = 'Pika Results';
-		if ($configArray['Content']['Prospector']) {
+		if ($configArray['Content']['Prospector']){
 			$validResultSources['prospector'] = 'Prospector';
 		}
 
 		$structure = array(
-				'id' => array('property'=>'id', 'type'=>'label', 'label'=>'Id', 'description'=>'The unique id of this section'),
-				'weight' => array('property'=>'weight', 'type'=>'integer', 'label'=>'Weight', 'description'=>'The sort order of the section', 'default' => 0),
-				'displayName' => array('property'=>'displayName', 'type'=>'text', 'label'=>'Display Name', 'description'=>'The full name of the section for display to the user', 'maxLength' => 255),
-				'numberOfResultsToShow' => array('property'=>'numberOfResultsToShow', 'type'=>'integer', 'label'=>'Num Results', 'description'=>'The number of results to show in the box.', 'default' => '5'),
-				'source' => array('property'=>'source', 'type'=>'enum', 'label'=>'Source', 'values' => $validResultSources, 'description'=>'The source of results in the section.', 'default'=>'pika'),
+			'id'                    => array('property'    => 'id',
+			                                 'type'        => 'label',
+			                                 'label'       => 'Id',
+			                                 'description' => 'The unique id of this section'),
+			'weight'                => array('property'    => 'weight',
+			                                 'type'        => 'integer',
+			                                 'label'       => 'Weight',
+			                                 'description' => 'The sort order of the section',
+			                                 'default'     => 0),
+			'displayName'           => array('property'    => 'displayName',
+			                                 'type'        => 'text',
+			                                 'label'       => 'Display Name',
+			                                 'description' => 'The full name of the section for display to the user',
+			                                 'maxLength'   => 255),
+			'numberOfResultsToShow' => array('property'    => 'numberOfResultsToShow',
+			                                 'type'        => 'integer',
+			                                 'label'       => 'Num Results',
+			                                 'description' => 'The number of results to show in the box.',
+			                                 'default'     => '5'),
+			'source'                => array('property'    => 'source',
+			                                 'type'        => 'enum',
+			                                 'label'       => 'Source',
+			                                 'values'      => $validResultSources,
+			                                 'description' => 'The source of results in the section.',
+			                                 'default'     => 'pika'),
 		);
 		return $structure;
 	}
@@ -42,7 +62,7 @@ abstract class CombinedResultSection extends DB_DataObject{
 		if ($this->source == 'pika') {
 			return "/Search/Results?lookfor=$searchTerm&basicType=$searchType&searchSource=local";
 		}elseif ($this->source == 'prospector'){
-			require_once ROOT_DIR . '/Drivers/marmot_inc/Prospector.php';
+			require_once ROOT_DIR . '/InterLibraryLoanDrivers/Prospector.php';
 			$prospector = new Prospector();
 			$search = array(array('lookfor' => $searchTerm, 'index' => $searchType));
 			return $prospector->getSearchLink($search);

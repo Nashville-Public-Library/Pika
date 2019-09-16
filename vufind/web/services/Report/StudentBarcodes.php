@@ -32,7 +32,7 @@ class Report_StudentBarcodes extends Admin_Admin {
 		$dh  = opendir($reportDir);
 		while (false !== ($filename = readdir($dh))) {
 			if (is_file($reportDir . '/' . $filename)){
-				if (preg_match('/(\w+)_school_barcodes\.csv/i', $filename, $matches)){
+				if (preg_match('/^(.*?)_school_barcodes\.csv/i', $filename, $matches)){
 					$locationCode = $matches[1];
 					if (preg_match("/$allowableLocationCodes/", $locationCode)){
 						$availableReports[$locationCode] = $filename;
@@ -92,7 +92,10 @@ class Report_StudentBarcodes extends Admin_Admin {
 			exit;
 		}
 
-		$this->display('studentBarcodes.tpl', 'Student Barcodes');
+		$interface->setPageTitle('Student Barcodes');
+		$interface->assign('sidebar', 'MyAccount/account-sidebar.tpl');
+		$interface->setTemplate('studentBarcodes.tpl');
+		$interface->display('layout.tpl');
 	}
 
 	function getAllowableRoles(){

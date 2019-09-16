@@ -32,9 +32,18 @@
 	<!-- End Google Analytics -->
 {else}
 	{if $googleAnalyticsId}
-	{* OPAC tracking code *}
+	{* OPAC and Library specific tracking code
+	Besides standard page tracking included is:
+	* Browse catagory click tracking
+	* Place hold click tracking
+	*
+	* Place hold click tracking sends 2 events
+			* The first sends title and format
+			* The second sends title and grouped work ID
+	*}
 	{literal}
 <script>
+	// Track a browse category title click
 	function trackBrowseTitleClick(el) {
 		if (dnt != "1" && dnt != "yes") {
 			var cat    = $('.selected-browse-label-search-text').text();
@@ -42,10 +51,9 @@
 			var title = el.title;
 			var browseCatString = cat;
 			if(subcat != '') {
-				browseCatString += '/'+subcat;
+				browseCatString += '/' + subcat;
 			}
-			browseCatString += '/'+title;
-
+			browseCatString += '/' + title;
 			ga('opacTracker.send', 'event', {
 				eventCategory: 'Browse Category',
 				eventAction: 'click',
@@ -61,6 +69,37 @@
 		}
 	}
 
+	// Track a place hold action
+	function trackHoldTitleClick(workId) {
+		if (dnt != "1" && dnt != "yes") {
+
+			$.get('/API/WorkAPI?method=getBasicWorkInfo&id='+workId,
+					function(data) {
+
+						var title  = data.result.title.replace('/', '');
+						var format = data.result.format.replace('/', '');
+						var groupedWorkId = data.result.groupedWorkId;
+						var holdTitleFormatGroupedWorkId = title + '/' + format + '/' + groupedWorkId;
+						// Send title, format and grouped work if of hold
+						ga('opacTracker.send', 'event', {
+							eventCategory: 'Holds',
+							eventAction: 'Place Hold',
+							eventLabel: holdTitleFormatGroupedWorkId,
+						});
+							{/literal}
+              {if $googleAnalyticsLibraryId}{literal}
+						// Send title and format of hold
+						ga('libraryTracker.send', 'event', {
+							eventCategory: 'Holds',
+							eventAction: 'Place Hold',
+							eventLabel: holdTitleFormatGroupedWorkId,
+						});{/literal}
+							{/if}{literal}
+					});
+		}
+		return true;
+	}
+
 	if (dnt != "1" && dnt != "yes") {
 		(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
 		(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
@@ -72,13 +111,15 @@
 		ga('create', '{/literal}{$googleAnalyticsLibraryId}{literal}', 'auto', 'libraryTracker');
 		ga('libraryTracker.set', 'dimension1', {/literal}'{$pType}'{literal}); // Patron Type
 		ga('libraryTracker.set', 'dimension2', {/literal}'{$homeLibrary}'{literal}); // Home Library
-		ga('libraryTracker.set', 'dimension3',{/literal}'{$physicalLocation}'{literal});{/literal}
+		ga('libraryTracker.set', 'dimension3', {/literal}'{$physicalLocation}'{literal}); // Physical Location {/literal}
 		{/if}
 		{literal}ga('opacTracker.set', 'dimension1', {/literal}'{$pType}'{literal}); // Patron Type
 		ga('opacTracker.set', 'dimension2', {/literal}'{$homeLibrary}'{literal}); // Home Library
-		ga('opacTracker.set', 'dimension3',{/literal}'{$physicalLocation}'{literal});
+		ga('opacTracker.set', 'dimension3', {/literal}'{$physicalLocation}'{literal}); // Physical Location
+		// Send opac tracker pageview
 		ga('opacTracker.send', 'pageview');{/literal}
 		{if $googleAnalyticsLibraryId}{literal}
+		// Send library tracker page view
 		ga('libraryTracker.send', 'pageview');{/literal}
 		{/if}{literal}
 	}

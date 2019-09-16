@@ -1,8 +1,8 @@
 <?php
 /**
- * Description goes here
+ * Grouped Work table Database Object
  *
- * @category VuFind-Plus 
+ * @category Pika
  * @author Mark Noble <mark@marmot.org>
  * Date: 12/6/13
  * Time: 9:50 AM
@@ -16,6 +16,10 @@ class GroupedWork extends DB_DataObject {
 	public $author;
 	public $grouping_category;
 	public $date_updated;
+
+	public static function validGroupedWorkId($id){
+		return preg_match('/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i', $id) === 1;
+	}
 
 	function forceRegrouping() {
 //		require_once ROOT_DIR . '/RecordDrivers/GroupedWorkDriver.php';
@@ -40,7 +44,7 @@ class GroupedWork extends DB_DataObject {
 					}
 				} else {
 					//Mark the checksum as 0.
-					require_once ROOT_DIR . '/sys/Indexing/IlsMarcChecksum.php';
+					require_once ROOT_DIR . '/sys/Extracting/IlsMarcChecksum.php';
 					$ilsMarcChecksum         = new IlsMarcChecksum();
 					$ilsMarcChecksum->ilsId  = $groupedWorkPrimaryIdentifier->identifier;
 					$ilsMarcChecksum->source = $groupedWorkPrimaryIdentifier->type;
@@ -56,4 +60,11 @@ class GroupedWork extends DB_DataObject {
 		}
 		return false;
 	}
+
+	public function forceReindex(){
+		$this->date_updated = "null";  // DB Object has special processing to set an column value to null (note: the vufind.ini value is important in this)
+		$numRows            = $this->update();
+		return $numRows == 1;
+	}
+
 }

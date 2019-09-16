@@ -93,13 +93,6 @@ class OverDriveRecordDriver extends RecordInterface {
 		}
 	}
 
-	function getAbsoluteUrl(){
-		global $configArray;
-		$recordId = $this->getUniqueID();
-
-		return $configArray['Site']['url'] . '/' . $this->getModule() . '/' . $recordId;
-	}
-
 	public function getPermanentId(){
 		return $this->getGroupedWorkId();
 	}
@@ -369,10 +362,11 @@ class OverDriveRecordDriver extends RecordInterface {
 			$interface->assign('overDriveMetaDataRaw', $overDriveMetadata);
 		}
 
-		$lastGroupedWorkModificationTime = $this->groupedWork->date_updated;
+		$lastGroupedWorkModificationTime = empty($this->groupedWork->date_updated) ? 'null' : $this->groupedWork->date_updated;
+		// Mark with text 'null' so that the template handles the display properly
 		$interface->assign('lastGroupedWorkModificationTime', $lastGroupedWorkModificationTime);
 
-		return 'RecordDrivers/OverDrive/staff.tpl';
+		return 'RecordDrivers/OverDrive/staff-view.tpl';
 	}
 
 	/**
@@ -605,6 +599,36 @@ class OverDriveRecordDriver extends RecordInterface {
 			}
 		}
 		return $isbn13;
+	}
+
+	// TODO: document
+	public function getCleanISBNs()
+	{
+		require_once ROOT_DIR . '/sys/ISBN.php';
+
+		// Get all the ISBNs and initialize the return value:
+		$isbns     = $this->getISBNs();
+		$cleanIsbns = [];
+		// Loop through the ISBNs:
+		foreach($isbns as $isbn) {
+			// Strip off any unwanted notes:
+			if ($pos = strpos($isbn, ' ')) {
+				$isbn = substr($isbn, 0, $pos);
+			}
+
+			$isbnObj = new ISBN($isbn);
+			if ($isbn10 = $isbnObj->get10()) {
+				if (!array_key_exists($isbn10, $cleanIsbns)){
+					$cleanIsbns[$isbn10] = $isbn10;
+				}
+			}
+			if ($isbn13 = $isbnObj->get13()) {
+				if (!array_key_exists($isbn13, $cleanIsbns)) {
+					$cleanIsbns[$isbn13] = $isbn13;
+				}
+			}
+		}
+		return $cleanIsbns;
 	}
 
 	/**
@@ -888,6 +912,14 @@ class OverDriveRecordDriver extends RecordInterface {
 		$linkUrl = '/OverDrive/' . $id . '/Home';
 		return $linkUrl;
 	}
+
+	function getAbsoluteUrl(){
+		global $configArray;
+		$recordId = $this->getUniqueID();
+
+		return $configArray['Site']['url'] . '/' . $this->getModule() . '/' . $recordId;
+	}
+
 	public function getLinkUrl($useUnscopedHoldingsSummary = false) {
 		global $interface;
 		$id = $this->getUniqueID();

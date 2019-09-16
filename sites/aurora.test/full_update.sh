@@ -13,6 +13,7 @@ EMAIL=pikaservers@marmot.org
 PIKASERVER=aurora.test
 PIKADBNAME=pika
 OUTPUT_FILE="/var/log/vufind-plus/${PIKASERVER}/full_update_output.log"
+USE_SIERRA_API_EXTRACT=1
 
 MINFILE1SIZE=$((260000000))
 
@@ -46,54 +47,7 @@ else
 fi
 
 # Check for conflicting processes currently running
-function checkConflictingProcesses() {
-	#Check to see if the conflict exists.
-	countConflictingProcesses=$(ps aux | grep -v sudo | grep -c "$1")
-	countConflictingProcesses=$((countConflictingProcesses-1))
-
-	let numInitialConflicts=countConflictingProcesses
-	#Wait until the conflict is gone.
-	until ((${countConflictingProcesses} == 0)); do
-		countConflictingProcesses=$(ps aux | grep -v sudo | grep -c "$1")
-		countConflictingProcesses=$((countConflictingProcesses-1))
-		#echo "Count of conflicting process" $1 $countConflictingProcesses
-		sleep 300
-	done
-	#Return the number of conflicts we found initially.
-	echo ${numInitialConflicts};
-}
-
-# Prohibited time ranges - for, e.g., ILS backup
-# JAMES is currently giving all Nashville prohibited times a ten minute buffer
-function checkProhibitedTimes() {
-	start=$(date --date=$1 +%s)
-	stop=$(date --date=$2 +%s)
-	NOW=$(date +%H:%M:%S)
-	NOW=$(date --date=$NOW +%s)
-
-	hasConflicts=0
-	if (( $start < $stop ))
-	then
-		if (( $NOW > $start && $NOW < $stop ))
-		then
-			#echo "Sleeping:" $(($stop - $NOW))
-			sleep $(($stop - $NOW))
-			hasConflicts=1
-		fi
-	elif (( $start > $stop ))
-	then
-		if (( $NOW < $stop ))
-		then
-			sleep $(($stop - $NOW))
-			hasConflicts=1
-		elif (( $NOW > $start ))
-		then
-			sleep $(($stop + 86400 - $NOW))
-			hasConflicts=1
-		fi
-	fi
-	echo ${hasConflicts};
-}
+source "/usr/local/vufind-plus/vufind/bash/checkConflicts.sh"
 
 #First make sure that we aren't running at a bad time.  This is really here in case we run manually.
 # since the run in cron is timed to avoid sensitive times.
@@ -102,9 +56,10 @@ function checkProhibitedTimes() {
 
 #Check for any conflicting processes that we shouldn't do a full index during.
 #Since we aren't running in a loop, check in the order they run.
-checkConflictingProcesses "sierra_export.jar ${PIKASERVER}"
-checkConflictingProcesses "overdrive_extract.jar ${PIKASERVER}"
-checkConflictingProcesses "reindexer.jar ${PIKASERVER}"
+checkConflictingProcesses "sierra_export_api.jar ${PIKASERVER}" >> ${OUTPUT_FILE}
+checkConflictingProcesses "sierra_export.jar ${PIKASERVER}" >> ${OUTPUT_FILE}
+checkConflictingProcesses "overdrive_extract.jar ${PIKASERVER}" >> ${OUTPUT_FILE}
+checkConflictingProcesses "reindexer.jar ${PIKASERVER}" >> ${OUTPUT_FILE}
 
 # Back-up Solr Master Index
 mysqldump ${PIKADBNAME} grouped_work_primary_identifiers > /data/vufind-plus/${PIKASERVER}/grouped_work_primary_identifiers.sql
@@ -144,7 +99,7 @@ cd /data/vufind-plus/accelerated_reader; curl --remote-name --remote-time --sile
 /usr/local/vufind-plus/vufind/cron/fetch_sideload_data.sh ${PIKASERVER} aurora/learning_express learning_express/aurora >> ${OUTPUT_FILE}
 
 #Lynda
-/usr/local/vufind-plus/vufind/cron/fetch_sideload_data.sh ${PIKASERVER} aurora/lynda lynda/aurora >> ${OUTPUT_FILE}
+#/usr/local/vufind-plus/vufind/cron/fetch_sideload_data.sh ${PIKASERVER} aurora/lynda lynda/aurora >> ${OUTPUT_FILE}
 
 #Rb digital books
 /usr/local/vufind-plus/vufind/cron/fetch_sideload_data.sh ${PIKASERVER} aurora/rbdigital_books rbdigital_books/aurora >> ${OUTPUT_FILE}
@@ -171,61 +126,93 @@ cd /data/vufind-plus/accelerated_reader; curl --remote-name --remote-time --sile
 DAYOFWEEK=$(date +"%u")
 if [ "${DAYOFWEEK}" -eq 6 ];
 then
+	echo $(date +"%T") "Starting Overdrive fullReload." >> ${OUTPUT_FILE}
 	cd /usr/local/vufind-plus/vufind/overdrive_api_extract/
-	nice -n -10 java -jar overdrive_extract.jar ${PIKASERVER} fullReload >> ${OUTPUT_FILE}
+	nice -n -10 java -server -XX:+UseG1GC -jar overdrive_extract.jar ${PIKASERVER} fullReload >> ${OUTPUT_FILE}
+	echo $(date +"%T") "Completed Overdrive fullReload." >> ${OUTPUT_FILE}
 fi
 
-#Extract from ILS
-#Copy extracts from FTP Server
-mount 10.1.2.7:/ftp/aurora/sierra /mnt/ftp
-FILE1=$(find /mnt/ftp/ -name fullexport*.mrc -mtime -1 | sort -n | tail -1)
+function copySierraExport() {
+	#Copy extracts from FTP Server
+	FTPSERVERPATH=$1
+	MINFILESIZE=$2
 
-if [ -n "$FILE1" ]
-then
-		FILE1SIZE=$(wc -c <"$FILE1")
-		if [ $FILE1SIZE -ge $MINFILE1SIZE ]; then
+	mount 10.1.2.7:$FTPSERVERPATH /mnt/ftp
+	FILE=$(find /mnt/ftp/ -name fullexport*.mrc -mtime -1 | sort -n | tail -1)
 
-			echo "Latest file is " $FILE1 >> ${OUTPUT_FILE}
-			DIFF=$(($FILE1SIZE - $MINFILE1SIZE))
-			PERCENTABOVE=$((100 * $DIFF / $MINFILE1SIZE))
-			echo "The export file is $PERCENTABOVE (%) larger than the minimum size check." >> ${OUTPUT_FILE}
+	if [ -n "$FILE" ]; then
+			FILE1SIZE=$(wc -c < "$FILE")
+			if [ $FILE1SIZE -ge $MINFILESIZE ]; then
 
-			cp $FILE1 /data/vufind-plus/${PIKASERVER}/marc/fullexport.mrc
+				echo "New export file is " $FILE
+				DIFF=$(($FILE1SIZE - $MINFILESIZE))
+				PERCENTABOVE=$((100 * $DIFF / $MINFILESIZE))
+				echo "The export file is $PERCENTABOVE (%) larger than the minimum size check."
+				NEWLEVEL=$(($FILE1SIZE * 97 / 100))
+				echo "Based on today's export file, a new minimum filesize check level should be set to $NEWLEVEL"
+				echo ""
 
-			#Delete full exports older than 3 days (production pika only)
-#			find /mnt/ftp/ -name fullexport*.mrc -mtime +3 -delete
-			umount /mnt/ftp
+				cp $FILE /data/vufind-plus/${PIKASERVER}/marc/fullexport.mrc
 
-		#Validate the export
-		cd /usr/local/vufind-plus/vufind/cron; java -server -XX:+UseG1GC -jar cron.jar ${PIKASERVER} ValidateMarcExport >> ${OUTPUT_FILE}
+				#Delete full exports older than 3 days (production pika only)
+	#			find /mnt/ftp/ -name fullexport*.mrc -mtime +3 -delete
 
-		#Full Regroup
-		cd /usr/local/vufind-plus/vufind/record_grouping; java -server -XX:+UseG1GC -Xmx2G -jar record_grouping.jar ${PIKASERVER} fullRegroupingNoClear >> ${OUTPUT_FILE}
+			#Validate the export
+			cd /usr/local/vufind-plus/vufind/cron; java -server -XX:+UseG1GC -jar cron.jar ${PIKASERVER} ValidateMarcExport >> ${OUTPUT_FILE}
 
-		#Full Reindex
-		cd /usr/local/vufind-plus/vufind/reindexer; java -server -XX:+UseG1GC -Xmx2G -jar reindexer.jar ${PIKASERVER} fullReindex >> ${OUTPUT_FILE}
-
-		# Truncate Continous Reindexing list of changed items
-		cat /dev/null >| /data/vufind-plus/${PIKASERVER}/marc/changed_items_to_process.csv
-
-		# Wait 2 minutes for solr replication to finish; then delete the inactive solr indexes folders older than 48 hours
-		# Note: Running in the full update because we know there is a freshly created index.
-		sleep 2m
-		find /data/vufind-plus/${PIKASERVER}/solr_searcher/grouped/ -name "index.*" -type d -mmin +2880 -exec rm -rf {} \; >> ${OUTPUT_FILE}
-
-		NEWLEVEL=$(($FILE1SIZE * 97 / 100))
-		echo "" >> ${OUTPUT_FILE}
-		echo "Based on today's export file, a new minimum filesize check level should be set to $NEWLEVEL" >> ${OUTPUT_FILE}
-
-		else
-			umount /mnt/ftp
-			echo $FILE1 " size " $FILE1SIZE "is less than minimum size :" $MINFILE1SIZE "; Export was not moved to data directory." >> ${OUTPUT_FILE}
-		fi
-
-else
+			else
+				echo $FILE " size " $FILE1SIZE "is less than minimum size :" $MINFILESIZE "; Export was not moved to data directory."
+			fi
+	fi
 	umount /mnt/ftp
-	echo "Did not find a Sierra export file from the last 24 hours, Full Regrouping & Full Reindexing skipped." >> ${OUTPUT_FILE}
-fi
+}
+
+copySierraExport "/ftp/aurora/sierra" "${MINFILE1SIZE}" >> ${OUTPUT_FILE}
+
+##Extract from ILS
+##Copy extracts from FTP Server
+#mount 10.1.2.7:/ftp/aurora/sierra /mnt/ftp
+#FILE1=$(find /mnt/ftp/ -name fullexport*.mrc -mtime -1 | sort -n | tail -1)
+#
+#if [ -n "$FILE1" ]; then
+#		FILE1SIZE=$(wc -c <"$FILE1")
+#		if [ $FILE1SIZE -ge $MINFILE1SIZE ]; then
+#
+#			echo "Latest file is " $FILE1 >> ${OUTPUT_FILE}
+#			DIFF=$(($FILE1SIZE - $MINFILE1SIZE))
+#			PERCENTABOVE=$((100 * $DIFF / $MINFILE1SIZE))
+#			echo "The export file is $PERCENTABOVE (%) larger than the minimum size check." >> ${OUTPUT_FILE}
+#			NEWLEVEL=$(($FILE1SIZE * 97 / 100))
+#			echo "Based on today's export file, a new minimum filesize check level should be set to $NEWLEVEL" >> ${OUTPUT_FILE}
+#			echo "" >> ${OUTPUT_FILE}
+#
+#			cp $FILE1 /data/vufind-plus/${PIKASERVER}/marc/fullexport.mrc
+#
+#			#Delete full exports older than 3 days (production pika only)
+##			find /mnt/ftp/ -name fullexport*.mrc -mtime +3 -delete
+#
+#		#Validate the export
+#		cd /usr/local/vufind-plus/vufind/cron; java -server -XX:+UseG1GC -jar cron.jar ${PIKASERVER} ValidateMarcExport >> ${OUTPUT_FILE}
+#
+#		else
+#			echo $FILE1 " size " $FILE1SIZE "is less than minimum size :" $MINFILE1SIZE "; Export was not moved to data directory." >> ${OUTPUT_FILE}
+#		fi
+#fi
+#umount /mnt/ftp
+
+#Full Regroup
+cd /usr/local/vufind-plus/vufind/record_grouping; java -server -XX:+UseG1GC -Xmx2G -jar record_grouping.jar ${PIKASERVER} fullRegroupingNoClear >> ${OUTPUT_FILE}
+
+#Full Reindex
+cd /usr/local/vufind-plus/vufind/reindexer; java -server -XX:+UseG1GC -Xmx2G -jar reindexer.jar ${PIKASERVER} fullReindex >> ${OUTPUT_FILE}
+
+# Truncate Continuous Reindexing list of changed items
+cat /dev/null >| /data/vufind-plus/${PIKASERVER}/marc/changed_items_to_process.csv
+
+# Wait 2 minutes for solr replication to finish; then delete the inactive solr indexes folders older than 48 hours
+# Note: Running in the full update because we know there is a freshly created index.
+sleep 2m
+find /data/vufind-plus/${PIKASERVER}/solr_searcher/grouped/ -name "index.*" -type d -mmin +2880 -exec rm -rf {} \; >> ${OUTPUT_FILE}
 
 # Clean-up Solr Logs
 find /usr/local/vufind-plus/sites/default/solr/jetty/logs -name "solr_log_*" -mtime +7 -delete
@@ -236,8 +223,7 @@ cd /usr/local/vufind-plus/sites/${PIKASERVER}; ./${PIKASERVER}.sh restart
 
 #Email results
 FILESIZE=$(stat -c%s ${OUTPUT_FILE})
-if [[ ${FILESIZE} > 0 ]]
-then
+if [[ ${FILESIZE} > 0 ]]; then
 # send mail
 mail -s "Full Extract and Reindexing - ${PIKASERVER}" $EMAIL < ${OUTPUT_FILE}
 fi

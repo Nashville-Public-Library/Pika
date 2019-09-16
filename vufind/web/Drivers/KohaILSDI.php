@@ -138,10 +138,10 @@ abstract class KohaILSDI extends ScreenScrapingDriver {
 		if (!empty($holdResponse)){
 			if (!empty($holdResponse->title)){
 				$holdResult = array(
-					'title' => $holdResponse->title,
-					'bib' => $recordId,
+					'title'   => $holdResponse->title,
+					'bib'     => $recordId,
 					'success' => true,
-					'message' => "You hold has been placed."
+					'message' => "Your hold has been placed."
 				);
 			}elseif(isset($holdResponse->message)){
 				$holdResult['message'] = $errorMessage;
@@ -215,11 +215,11 @@ abstract class KohaILSDI extends ScreenScrapingDriver {
 	 */
 	public function renewItem($patron, $recordId, $itemId, $itemIndex){
 
-		$renewResults = array(
+		$renewResults = [
 			'itemId' => 0,
 			'success' => false,
 			'message' => 'Failed to renew item.'
-		);
+		];
 
 		$patronKohaId = $this->getKohaPatronId($patron);
 
@@ -337,7 +337,6 @@ abstract class KohaILSDI extends ScreenScrapingDriver {
 		return $patron;
 	}
 
-
 	private function authenticatePatron($barcode, $password){
 		$urlParameters = array(
 			'service' => 'AuthenticatePatron',
@@ -346,7 +345,7 @@ abstract class KohaILSDI extends ScreenScrapingDriver {
 		);
 
 		$webServiceURL        = $this->getWebServiceURL() . $this->ilsdiscript;
-		$webServiceURL       .= '?' . http_build_query($urlParameters);
+		$webServiceURL        .= '?' . http_build_query($urlParameters);
 		$authenticateResponse = $this->getWebServiceResponse($webServiceURL);
 		if (!empty($authenticateResponse)){
 			if (!empty($authenticateResponse->id)){

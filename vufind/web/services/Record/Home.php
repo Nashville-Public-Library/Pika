@@ -26,8 +26,6 @@ class Record_Home extends Record_Record {
 		global $interface;
 		global $timer;
 
-		$interface->assign('recordId', $this->id);
-
 		$this->loadCitations();
 		$timer->logTime('Loaded Citations');
 
@@ -53,7 +51,11 @@ class Record_Home extends Record_Record {
 		$exploreMoreInfo = $this->recordDriver->getExploreMoreInfo();
 		$interface->assign('exploreMoreInfo', $exploreMoreInfo);
 
-		$interface->assign('semanticData', json_encode($this->recordDriver->getSemanticData()));
+		if($semanticData = $this->recordDriver->getSemanticData() && !empty($semanticData)) {
+			$interface->assign('semanticData', json_encode($semanticData, JSON_PRETTY_PRINT));
+		} else {
+			$interface->assign('semanticData', false);
+		}
 
 		// Display Page
 		global $configArray;

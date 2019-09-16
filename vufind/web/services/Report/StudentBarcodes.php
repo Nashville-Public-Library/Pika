@@ -32,7 +32,7 @@ class Report_StudentBarcodes extends Admin_Admin {
 		$dh  = opendir($reportDir);
 		while (false !== ($filename = readdir($dh))) {
 			if (is_file($reportDir . '/' . $filename)){
-				if (preg_match('/(\w+)_school_barcodes\.csv/i', $filename, $matches)){
+				if (preg_match('/^(.*?)_school_barcodes\.csv/i', $filename, $matches)){
 					$locationCode = $matches[1];
 					if (preg_match("/$allowableLocationCodes/", $locationCode)){
 						$availableReports[$locationCode] = $filename;

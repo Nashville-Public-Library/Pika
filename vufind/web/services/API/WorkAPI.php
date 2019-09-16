@@ -2,35 +2,33 @@
 /**
  * API functionality related to Grouped Works
  *
- * @category VuFind-Plus
- * @author Mark Noble <mark@marmot.org>
+ * @category Pika
+ * @author   Mark Noble <mark@marmot.org>
  * Date: 2/4/14
  * Time: 9:21 AM
  */
 
-class WorkAPI {
-	function launch()
-	{
-		$method = (isset($_GET['method']) && !is_array($_GET['method'])) ? $_GET['method'] : '';
-		if (method_exists($this, $method)) {
-			$output = json_encode(array('result'=>$this->$method()));
-		} else {
-			$output = json_encode(array('error'=>"invalid_method '$method'"));
-		}
+require_once ROOT_DIR . '/AJAXHandler.php';
 
-		echo $output;
-	}
+class WorkAPI extends AJAXHandler {
 
-	function getRatingData($permanentId = null){
+	protected $methodsThatRespondWithJSONResultWrapper = array(
+		'getRatingData',
+		'getIsbnsForWork',
+		'generateWorkId',
+		'getBasicWorkInfo',
+	);
+
+	public function getRatingData($permanentId = null){
 		if (is_null($permanentId) && isset($_REQUEST['id'])){
 			$permanentId = $_REQUEST['id'];
 		}
 
 		//Set default rating data
 		$ratingData = array(
-			'average' => 0,
-			'count'   => 0,
-			'user'    => 0,
+			'average'  => 0,
+			'count'    => 0,
+			'user'     => 0,
 			'num1star' => 0,
 			'num2star' => 0,
 			'num3star' => 0,
@@ -44,7 +42,7 @@ class WorkAPI {
 		}
 
 		require_once ROOT_DIR . '/sys/LocalEnrichment/UserWorkReview.php';
-		$reviewData = new UserWorkReview();
+		$reviewData                           = new UserWorkReview();
 		$reviewData->groupedRecordPermanentId = $permanentId;
 		$reviewData->find();
 		$totalRating = 0;
@@ -56,20 +54,20 @@ class WorkAPI {
 					$ratingData['user'] = $reviewData->rating;
 				}
 				if ($reviewData->rating == 1){
-					$ratingData['num1star'] ++;
+					$ratingData['num1star']++;
 				}elseif ($reviewData->rating == 2){
-					$ratingData['num2star'] ++;
+					$ratingData['num2star']++;
 				}elseif ($reviewData->rating == 3){
-					$ratingData['num3star'] ++;
+					$ratingData['num3star']++;
 				}elseif ($reviewData->rating == 4){
-					$ratingData['num4star'] ++;
+					$ratingData['num4star']++;
 				}elseif ($reviewData->rating == 5){
-					$ratingData['num5star'] ++;
+					$ratingData['num5star']++;
 				}
 			}
 		}
 		if ($ratingData['count'] > 0){
-			$ratingData['average'] = $totalRating / $ratingData['count'];
+			$ratingData['average']       = $totalRating / $ratingData['count'];
 			$ratingData['barWidth5Star'] = 100 * $ratingData['num5star'] / $ratingData['count'];
 			$ratingData['barWidth4Star'] = 100 * $ratingData['num4star'] / $ratingData['count'];
 			$ratingData['barWidth3Star'] = 100 * $ratingData['num3star'] / $ratingData['count'];
@@ -97,7 +95,7 @@ class WorkAPI {
 
 		global $configArray;
 		$class = $configArray['Index']['engine'];
-		$url = $configArray['Index']['url'];
+		$url   = $configArray['Index']['url'];
 		/** @var Solr $db */
 		$db = new $class($url);
 
@@ -115,14 +113,40 @@ class WorkAPI {
 
 	public function generateWorkId(){
 		global $configArray;
-		$localPath = $configArray['Site']['local'];
-		$title = escapeshellarg($_REQUEST['title']);
-		$author = escapeshellarg($_REQUEST['author']);
-		$format = escapeshellarg($_REQUEST['format']);
+		$localPath          = $configArray['Site']['local'];
+		$title              = escapeshellarg($_REQUEST['title']);
+		$author             = escapeshellarg($_REQUEST['author']);
+		$format             = escapeshellarg($_REQUEST['format']);
 		$recordGroupingPath = realpath("$localPath/../record_grouping/");
-		$commandToRun = "java -jar $recordGroupingPath/record_grouping.jar generateWorkId $title $author $format";
-		$result = shell_exec($commandToRun);
-		//TODO: Return normalized title and normalized author as well.
+		$commandToRun       = "java -jar $recordGroupingPath/record_grouping.jar generateWorkId $title $author $format";
+		$result             = shell_exec($commandToRun);
 		return json_decode($result);
 	}
+
+	public function getBasicWorkInfo() {
+		$recordId = $_REQUEST['id'];
+		$recordDriver = new MarcRecord($recordId);
+		$work = [];
+		if ($recordDriver->isValid()) {
+			$work['coverUrl']      = $recordDriver->getBookcoverUrl('medium');
+			$work['groupedWorkId'] = $recordDriver->getGroupedWorkId();
+			$work['format']        = $recordDriver->getPrimaryFormat();
+			$work['author']        = $recordDriver->getPrimaryAuthor();
+			$work['title']         = $recordDriver->getTitle();
+			$work['title_sort']    = $recordDriver->getSortableTitle();
+			$work['link']          = $recordDriver->getLinkUrl();
+		} else {
+			$work['coverUrl']      = "";
+			$work['groupedWorkId'] = "";
+			$work['format']        = "Unknown";
+			$work['author']        = "Unknown";
+			$work['title']         = "Unknown";
+			$work['title_sort']    = "Unknown";
+			$work['link']          = '';
+		}
+
+		return $work;
+	}
+
+
 }

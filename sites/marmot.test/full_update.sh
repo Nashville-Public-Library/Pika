@@ -7,7 +7,7 @@ EMAIL=root@titan
 PIKASERVER=marmot.test
 PIKADBNAME=pika
 OUTPUT_FILE="/var/log/vufind-plus/${PIKASERVER}/full_update_output.log"
-USE_SIERRA_API_EXTRACT=0
+USE_SIERRA_API_EXTRACT=1
 
 # Check if full_update is already running
 #TODO: Verify that the PID file doesn't get log-rotated
@@ -39,22 +39,8 @@ else
 fi
 
 # Check for conflicting processes currently running
-function checkConflictingProcesses() {
-	#Check to see if the conflict exists.
-	countConflictingProcesses=$(ps aux | grep -v sudo | grep -c "$1")
-	countConflictingProcesses=$((countConflictingProcesses-1))
+source "/usr/local/vufind-plus/vufind/bash/checkConflicts.sh"
 
-	let numInitialConflicts=countConflictingProcesses
-	#Wait until the conflict is gone.
-	until ((${countConflictingProcesses} == 0)); do
-		countConflictingProcesses=$(ps aux | grep -v sudo | grep -c "$1")
-		countConflictingProcesses=$((countConflictingProcesses-1))
-		#echo "Count of conflicting process" $1 $countConflictingProcesses
-		sleep 300
-	done
-	#Return the number of conflicts we found initially.
-	echo ${numInitialConflicts};
-}
 
 #Check for any conflicting processes that we shouldn't do a full index during.
 checkConflictingProcesses "sierra_export_api.jar ${PIKASERVER}" >> ${OUTPUT_FILE}
@@ -73,20 +59,17 @@ sleep 2m
 tar -czf /data/vufind-plus/${PIKASERVER}/solr_master_backup.tar.gz /data/vufind-plus/${PIKASERVER}/solr_master/grouped/index/ /data/vufind-plus/${PIKASERVER}/grouped_work_primary_identifiers.sql >> ${OUTPUT_FILE}
 rm /data/vufind-plus/${PIKASERVER}/grouped_work_primary_identifiers.sql
 
-#echo "Finished index backups"
+echo "Finished index backups" >> ${OUTPUT_FILE}
 
 #Restart Solr
 cd /usr/local/vufind-plus/sites/${PIKASERVER}; ./${PIKASERVER}.sh restart
 
-#echo "Finished solr restart"
+echo "Finished solr restart" >> ${OUTPUT_FILE}
 
-if [ $USE_SIERRA_API_EXTRACT -ne 1 ]; then
-	#Extract from ILS
-	#Do not copy the Sierra export, we will just
+	#If a fresh full export file for the ILS has been sent, it should get processed
 	/usr/local/vufind-plus/sites/${PIKASERVER}/copySierraExport.sh >> ${OUTPUT_FILE}
-fi
+#	echo "Finished export copy" >> ${OUTPUT_FILE}
 
-#echo "Finished export copy"
 
 #Extract from Hoopla
 cd /usr/local/vufind-plus/vufind/cron;./HOOPLA.sh ${PIKASERVER} >> ${OUTPUT_FILE}
@@ -122,6 +105,10 @@ cd /usr/local/vufind-plus/vufind/cron;./HOOPLA.sh ${PIKASERVER} >> ${OUTPUT_FILE
 # Marmot RBDigital (magazine) Marc Updates
 /usr/local/vufind-plus/vufind/cron/fetch_sideload_data.sh ${PIKASERVER} marmot/rbdigital zinio >> ${OUTPUT_FILE}
 /usr/local/vufind-plus/vufind/cron/fetch_sideload_data.sh ${PIKASERVER} marmot/rbdigitalBackIssues zinio/backIssues >> ${OUTPUT_FILE}
+
+# Marmot RBDigital (magazine) Marc Updates Test Sites
+/usr/local/vufind-plus/vufind/cron/fetch_sideload_data.sh ${PIKASERVER}  marmot/rbdigtial_active_test rbdigital_active_test/marmot >> ${OUTPUT_FILE}
+/usr/local/vufind-plus/vufind/cron/fetch_sideload_data.sh ${PIKASERVER} marmot/rbdigtial_backissue_test rbdigital_backissue_test/marmot >> ${OUTPUT_FILE}
 
 # Western Oxford Reference Marc Updates
 /usr/local/vufind-plus/vufind/cron/fetch_sideload_data.sh ${PIKASERVER} western/oxfordReference oxfordReference/western >> ${OUTPUT_FILE}
@@ -192,10 +179,10 @@ cd /usr/local/vufind-plus/vufind/cron; ./sideload.sh ${PIKASERVER}
 #get caught in the regular extract
 DAYOFWEEK=$(date +"%u")
 if [[ "${DAYOFWEEK}" -eq 7 ]]; then
-	echo $(date +"%T") "Starting Overdrive fullReload."  >> ${OUTPUT_FILE}
+	echo $(date +"%T") "Starting Overdrive fullReload." >> ${OUTPUT_FILE}
 	cd /usr/local/vufind-plus/vufind/overdrive_api_extract/
 	nice -n -10 java -server -XX:+UseG1GC -jar overdrive_extract.jar ${PIKASERVER} fullReload >> ${OUTPUT_FILE}
-	echo $(date +"%T") "Completed Overdrive fullReload."  >> ${OUTPUT_FILE}
+	echo $(date +"%T") "Completed Overdrive fullReload." >> ${OUTPUT_FILE}
 fi
 
 #Note, no need to extract from Lexile for this server since it is the master
@@ -228,6 +215,15 @@ find /usr/local/vufind-plus/sites/default/solr/jetty/logs -name "solr_gc_log_*" 
 
 #Restart Solr
 cd /usr/local/vufind-plus/sites/${PIKASERVER}; ./${PIKASERVER}.sh restart
+
+# Check that the complete DPLA feed file is up to date
+OLDDPLAFEED=$(find /usr/local/vufind-plus/vufind/web -name "dplaFeed.json" -mtime +30)
+if [ -n "$OLDDPLAFEED" ]
+then
+	echo "The DPLA feed file is older than 30 days : " >> ${OUTPUT_FILE}
+	echo "$OLDDPLAFEED" >> ${OUTPUT_FILE}
+fi
+
 
 #Email results
 FILESIZE=$(stat -c%s ${OUTPUT_FILE})

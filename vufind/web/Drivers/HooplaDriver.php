@@ -10,6 +10,7 @@
  *
  */
 
+require_once ROOT_DIR . '/services/SourceAndId.php';
 
 class HooplaDriver
 {
@@ -34,15 +35,13 @@ class HooplaDriver
 
 	/**
 	 * Clean an assumed Hoopla RecordID to Hoopla ID number
-	 * @param $hooplaRecordId
+	 *
+	 * @param $hooplaId
+	 *
 	 * @return string
 	 */
-	public static function recordIDtoHooplaID($hooplaRecordId)
-	{
-		if (strpos($hooplaRecordId, ':') !== false) {
-			list(,$hooplaRecordId) = explode(':', $hooplaRecordId, 2);
-		}
-		return preg_replace('/^MWT/', '', $hooplaRecordId);
+	public static function recordIDtoHooplaID(SourceAndId $hooplaId){
+		return preg_replace('/^MWT/', '', $hooplaId->getRecordId());
 	}
 
 
@@ -244,7 +243,8 @@ class HooplaDriver
 						}
 
 						require_once ROOT_DIR . '/RecordDrivers/HooplaRecordDriver.php';
-						$hooplaRecordDriver = new HooplaRecordDriver($hooplaRecordID);
+//						$hooplaRecordDriver = new HooplaRecordDriver($hooplaRecordID);
+						$hooplaRecordDriver = new HooplaRecordDriver('hoopla:'.$hooplaRecordID); //TODO: need a proper solution here
 						if ($hooplaRecordDriver->isValid()) {
 							// Get Record For other details
 							$currentTitle['coverUrl']      = $hooplaRecordDriver->getBookcoverUrl('medium');
@@ -342,16 +342,20 @@ class HooplaDriver
 	}
 
 	/**
-	 * @param $hooplaId
+	 * Checkout a title from hoopla for the user.
+	 *
+	 * @param SourceAndId $hooplaId
 	 * @param $user User
+	 *
+	 * @return array
 	 */
-	public function checkoutHooplaItem($hooplaId, $user) {
+	public function checkoutHooplaItem(SourceAndId $hooplaId, $user) {
 		if ($this->hooplaEnabled) {
 			$checkoutURL = $this->getHooplaBasePatronURL($user);
 			if (!empty($checkoutURL)) {
 
-				$hooplaId = self::recordIDtoHooplaID($hooplaId);
-				$checkoutURL      .= '/' . $hooplaId;
+				$id = self::recordIDtoHooplaID($hooplaId);
+				$checkoutURL      .= '/' . $id;
 				$checkoutResponse = $this->getAPIResponse($checkoutURL, array(), 'POST');
 				if ($checkoutResponse) {
 					if (!empty($checkoutResponse->contentId)) {
@@ -404,7 +408,15 @@ class HooplaDriver
 		}
 	}
 
-	public function returnHooplaItem($hooplaId, $user) {
+	/**
+	 * Return a checked out Hoopla title for the user.
+	 *
+	 * @param SourceAndId $hooplaId
+	 * @param User $user
+	 *
+	 * @return array
+	 */
+	public function returnHooplaItem(SourceAndId $hooplaId, $user) {
 		if ($this->hooplaEnabled) {
 			$returnHooplaItemURL = $this->getHooplaBasePatronURL($user);
 			if (!empty($returnHooplaItemURL)) {

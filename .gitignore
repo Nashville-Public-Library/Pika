@@ -51,7 +51,6 @@ horizon_export.properties
 
 # Unneeded files that are large or built at runtime #
 #####################################################
-III_Telnet_Extract.pl
 LexileTitles.txt
 
 # Packages #
@@ -172,3 +171,8 @@ sites/arlington.localhost/sql_backup/arlington_econtent.sql
 *.sql
 vufind/web/interface/themes/pitkin_resp/images/Winter.JPG
 main.tmpcss
+
+# Chris' VM   #
+###############
+sites/*.vm-server.net
+

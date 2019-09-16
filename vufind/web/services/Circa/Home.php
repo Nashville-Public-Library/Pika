@@ -33,9 +33,7 @@ class Circa_Home extends Action
 		}
 
 		//Get view & load template
-		$interface->assign('sidebar', 'MyAccount/account-sidebar.tpl');
-		$interface->setTemplate('home.tpl');
-		$interface->display('layout.tpl', 'Circa');
+		$this->display('home.tpl', 'Circa');
 	}
 
 	function processInventory(){
@@ -56,7 +54,7 @@ class Circa_Home extends Action
 		$interface->assign('lastUpdateIncorrectStatuses', $updateIncorrectStatuses);
 
 		try {
-			$catalog = CatalogFactory::getCatalogConnectionInstance();;
+			$catalog = CatalogFactory::getCatalogConnectionInstance();
 			$results = $catalog->doInventory($login, $password1, null, null, $barcodes, $updateIncorrectStatuses);
 			return $results;
 		} catch (PDOException $e) {

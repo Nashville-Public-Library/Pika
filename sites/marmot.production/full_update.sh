@@ -8,7 +8,7 @@ PIKASERVER=marmot.production
 PIKADBNAME=pika
 OUTPUT_FILE="/var/log/vufind-plus/${PIKASERVER}/full_update_output.log"
 
-MINFILE1SIZE=$((5040000000))
+MINFILE1SIZE=$((5050000000))
 
 # Check for conflicting processes currently running
 function checkConflictingProcesses() {
@@ -46,7 +46,7 @@ rm /data/vufind-plus/${PIKASERVER}/grouped_work_primary_identifiers.sql
 cd /usr/local/vufind-plus/sites/${PIKASERVER}; ./${PIKASERVER}.sh restart
 
 #Extract from ILS
-/usr/local/vufind-plus/sites/${PIKASERVER}/copySierraExport.sh >> ${OUTPUT_FILE}
+#/usr/local/vufind-plus/sites/${PIKASERVER}/copySierraExport.sh >> ${OUTPUT_FILE}
 
 #Extract from Hoopla
 #cd /usr/local/vufind-plus/vufind/cron;./HOOPLA.sh ${PIKASERVER} >> ${OUTPUT_FILE}
@@ -152,18 +152,18 @@ echo $(date +"%T") "Starting Overdrive fullReload."  >> ${OUTPUT_FILE}
 echo $(date +"%T") "Completed Overdrive fullReload."  >> ${OUTPUT_FILE}
 fi
 
-FILE=$(find /data/vufind-plus/${PIKASERVER}/marc/ -name fullexport.mrc -mtime -1 | sort -n | tail -1)
+#FILE=$(find /data/vufind-plus/${PIKASERVER}/marc/ -name fullexport.mrc -mtime -1 | sort -n | tail -1)
 
-if [ -n "$FILE" ]
-then
+#if [ -n "$FILE" ]
+#then
   #check file size
-	FILE1SIZE=$(wc -c <"$FILE")
-	if [ $FILE1SIZE -ge $MINFILE1SIZE ]; then
+#	FILE1SIZE=$(wc -c <"$FILE")
+#	if [ $FILE1SIZE -ge $MINFILE1SIZE ]; then
 
-		echo "Latest export file is " $FILE >> ${OUTPUT_FILE}
-		DIFF=$(($FILE1SIZE - $MINFILE1SIZE))
-		PERCENTABOVE=$((100 * $DIFF / $MINFILE1SIZE))
-		echo "The export file is $PERCENTABOVE (%) larger than the minimum size check." >> ${OUTPUT_FILE}
+#		echo "Latest export file is " $FILE >> ${OUTPUT_FILE}
+#		DIFF=$(($FILE1SIZE - $MINFILE1SIZE))
+#		PERCENTABOVE=$((100 * $DIFF / $MINFILE1SIZE))
+#		echo "The export file is $PERCENTABOVE (%) larger than the minimum size check." >> ${OUTPUT_FILE}
 
 		#Validate the export
 		cd /usr/local/vufind-plus/vufind/cron; java -server -XX:+UseG1GC -jar cron.jar ${PIKASERVER} ValidateMarcExport >> ${OUTPUT_FILE}
@@ -171,29 +171,27 @@ then
 		#Full Regroup
 		cd /usr/local/vufind-plus/vufind/record_grouping; java -server -XX:+UseG1GC -Xmx6G -jar record_grouping.jar ${PIKASERVER} fullRegroupingNoClear >> ${OUTPUT_FILE}
 
-		#TODO: Determine if we should do a partial update from the ILS and OverDrive before running the reindex to grab last minute changes
-
 		#Full Reindex
 		cd /usr/local/vufind-plus/vufind/reindexer; nice -n -3 java -server -XX:+UseG1GC -jar reindexer.jar ${PIKASERVER} fullReindex >> ${OUTPUT_FILE}
 
 		# Truncate Continuous Reindexing list of changed items
 		cat /dev/null >| /data/vufind-plus/${PIKASERVER}/marc/changed_items_to_process.csv
 
-		NEWLEVEL=$(($FILE1SIZE * 97 / 100))
-		echo "" >> ${OUTPUT_FILE}
-		echo "Based on today's export file, a new minimum filesize check level should be set to $NEWLEVEL" >> ${OUTPUT_FILE}
+#		NEWLEVEL=$(($FILE1SIZE * 97 / 100))
+#		echo "" >> ${OUTPUT_FILE}
+#		echo "Based on today's export file, a new minimum filesize check level should be set to $NEWLEVEL" >> ${OUTPUT_FILE}
 
 		# Wait 2 minutes for solr replication to finish; then delete the inactive solr indexes folders older than 48 hours
 		# Note: Running in the full update because we know there is a freshly created index.
 		sleep 2m
 		find /data/vufind-plus/${PIKASERVER}/solr_searcher/grouped/ -name "index.*" -type d -mmin +2880 -exec rm -rf {} \; >> ${OUTPUT_FILE}
 
-	else
-		echo $FILE " size " $FILE1SIZE "is less than minimum size :" $MINFILE1SIZE "; Export was not moved to data directory, Full Regrouping & Full Reindexing skipped." >> ${OUTPUT_FILE}
-	fi
-else
-	echo "Did not find a export file from the last 24 hours, Full Regrouping & Full Reindexing skipped." >> ${OUTPUT_FILE}
-fi
+#	else
+#		echo $FILE " size " $FILE1SIZE "is less than minimum size :" $MINFILE1SIZE "; Export was not moved to data directory, Full Regrouping & Full Reindexing skipped." >> ${OUTPUT_FILE}
+#	fi
+#else
+#	echo "Did not find a export file from the last 24 hours, Full Regrouping & Full Reindexing skipped." >> ${OUTPUT_FILE}
+#fi
 
 # Clean-up Solr Logs
 find /usr/local/vufind-plus/sites/default/solr/jetty/logs -name "solr_log_*" -mtime +7 -delete
@@ -201,6 +199,14 @@ find /usr/local/vufind-plus/sites/default/solr/jetty/logs -name "solr_gc_log_*" 
 
 #Restart Solr
 cd /usr/local/vufind-plus/sites/${PIKASERVER}; ./${PIKASERVER}.sh restart
+
+# Check that the complete DPLA feed file is up to date
+OLDDPLAFEED=$(find /usr/local/vufind-plus/vufind/web -name "dplaFeed.json" -mtime +30)
+if [ -n "$OLDDPLAFEED" ]
+then
+	echo "The DPLA feed file is older than 30 days : "
+	echo "$OLDDPLAFEED"
+fi
 
 #Email results
 FILESIZE=$(stat -c%s ${OUTPUT_FILE})

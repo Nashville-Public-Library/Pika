@@ -399,6 +399,12 @@ class IndexRecord extends RecordInterface
 		return false;
 	}
 
+	public function getSemanticData()
+	{
+		// TODO: Implement getSemanticData() method.
+		return [];
+	}
+
 	/**
 	 * Get any reviews associated with this record.  For details of
 	 * the return format, see sys/Reviews.php.
@@ -590,20 +596,26 @@ class IndexRecord extends RecordInterface
 		}
 		$formats = $this->getFormat();
 		$format  = reset($formats);
-		global $configArray;
-		$bookCoverUrl = $configArray['Site']['coverUrl'] . "/bookcover.php?id={$id}&amp;size={$size}&amp;category=" . urlencode($formatCategory) . "&amp;format=" . urlencode($format);
-		$isbn = $this->getCleanISBN();
+		$parameters = array(
+			'id'       => $id,
+			'size'     => $size,
+			'category' => $formatCategory,
+			'format'   => $format,
+		);
+		$isbn       = $this->getCleanISBN();
 		if ($isbn){
-			$bookCoverUrl .= "&amp;isn={$isbn}";
+			$parameters['isn'] = $isbn;
 		}
 		$upc = $this->getCleanUPC();
 		if ($upc){
-			$bookCoverUrl .= "&amp;upc={$upc}";
+			$parameters['upc'] = $upc;
 		}
 		$issn = $this->getCleanISSN();
 		if ($issn){
-			$bookCoverUrl .= "&amp;issn={$issn}";
+			$parameters['issn'] = $issn;
 		}
+		global $configArray;
+		$bookCoverUrl = $configArray['Site']['coverUrl'] . '/bookcover.php?' . http_build_query($parameters);
 		return $bookCoverUrl;
 	}
 
@@ -1034,19 +1046,20 @@ class IndexRecord extends RecordInterface
 	}
 
 	static $groupedWorks = array();
+
 	/**
 	 * Load the grouped work that this record is connected to.
 	 */
-	public function loadGroupedWork() {
+	public function loadGroupedWork(){
 		if ($this->groupedWork == null){
 			global $timer;
 			require_once ROOT_DIR . '/sys/Grouping/GroupedWorkPrimaryIdentifier.php';
 			require_once ROOT_DIR . '/sys/Grouping/GroupedWork.php';
-			$groupedWorkPrimaryIdentifier = new GroupedWorkPrimaryIdentifier();
-			$groupedWorkPrimaryIdentifier->type = $this->getRecordType();
+			$groupedWorkPrimaryIdentifier             = new GroupedWorkPrimaryIdentifier();
+			$groupedWorkPrimaryIdentifier->type       = $this->getRecordType();
 			$groupedWorkPrimaryIdentifier->identifier = $this->getUniqueID();
 			if ($groupedWorkPrimaryIdentifier->find(true)){
-				$groupedWork = new GroupedWork();
+				$groupedWork     = new GroupedWork();
 				$groupedWork->id = $groupedWorkPrimaryIdentifier->grouped_work_id;
 				if ($groupedWork->find(true)){
 					$this->groupedWork = clone $groupedWork;

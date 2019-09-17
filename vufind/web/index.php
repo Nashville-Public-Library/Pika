@@ -80,6 +80,7 @@ $googleAnalyticsId        = isset($configArray['Analytics']['googleAnalyticsId']
 $googleAnalyticsLibraryId = isset($library->gaTrackingId)                                ? $library->gaTrackingId : false;
 #TODO: What is $googleAnalyticsLinkingId
 $googleAnalyticsLinkingId = isset($configArray['Analytics']['googleAnalyticsLinkingId']) ? $configArray['Analytics']['googleAnalyticsLinkingId'] : false;
+$trackTranslation         = isset($configArray['Analytics']['trackTranslation'])         ? $configArray['Analytics']['trackTranslation'] : false;
 $interface->assign('googleAnalyticsId', $googleAnalyticsId);
 $interface->assign('googleAnalyticsLibraryId', $googleAnalyticsLibraryId);
 $interface->assign('trackTranslation', $trackTranslation);

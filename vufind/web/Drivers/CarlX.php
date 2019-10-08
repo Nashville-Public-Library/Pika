@@ -836,7 +836,7 @@ class CarlX extends SIP2Driver{
 			$birthDateMax = date('Y-m-d', strtotime('-13 years'));
 			$fields[] = array('property'=>'birthDate', 'type'=>'date', 'label'=>'Date of Birth (MM-DD-YYYY)', 'description'=>'Date of birth', 'min'=>$birthDateMin, 'max'=>$birthDateMax, 'maxLength' => 10, 'required' => true);
 		}
-		$fields[] = array('property'=>'address',     'type'=>'text', 'label'=>'Mailing Address', 'description'=>'Mailing Address', 'maxLength' => 128, 'required' => true);
+		$fields[] = array('property'=>'address',     'type'=>'text', 'label'=>'Current Residential Address', 'description'=>'Mailing Address', 'maxLength' => 128, 'required' => true);
 		$fields[] = array('property'=>'city',        'type'=>'text', 'label'=>'City', 'description'=>'City', 'maxLength' => 48, 'required' => true);
 		$fields[] = array('default'=>'TN','property'=>'state',       'type'=>'text', 'label'=>'State', 'description'=>'State', 'maxLength' => 2, 'required' => true);
 		$fields[] = array('property'=>'zip',         'type'=>'text', 'label'=>'Zip Code', 'description'=>'Zip Code', 'maxLength' => 32, 'required' => true);

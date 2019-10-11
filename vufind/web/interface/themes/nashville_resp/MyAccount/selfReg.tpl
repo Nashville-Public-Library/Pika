@@ -7,8 +7,8 @@
 					{$selfRegistrationSuccessMessage}
 				{else}
 					<p>Congratulations, you have successfully registered for a new library card.</p>
-					<p>Your library card number has been emailed to you.</p>
-					<p>Please bring a valid ID to the library to receive a physical library card.</p>
+					<p>Your library card number has been emailed to you. This gives you immediate access to our online streaming, download, and database content for 45 days.</p>
+					<p>To maintain access indefinitely, visit any <a href="https://library.nashville.org/locations">NPL branch</a> with photo ID and <a href="https://library.nashville.org/get-card#getting-a-card">proof of Davidson County residency</a>.</p>
 				{/if}
 			</div>
 		{else}
@@ -21,7 +21,16 @@
 				{if $selfRegistrationFormMessage}
 					{$selfRegistrationFormMessage}
 				{else}
-					This page allows you to register as a patron of our library online. You will have limited privileges initially.
+					<p>Residents of Davidson County or the City of Goodlettsville may register for a digital access card. We will email you an account number that gives you immediate access to our online streaming, download, and database content for 45 days. To maintain access indefinitely, visit any <a href="https://library.nashville.org/locations">NPL branch</a> with photo ID and <a href="https://library.nashville.org/get-card#getting-a-card">proof of Davidson County residency</a>.</p>
+
+<p>By completing this form, you are agreeing to receive news and updates from Nashville Public Library and <a href="https://nplf.org">Nashville Public Library Foundation</a>.</p>
+
+<p>Requirements:</p>
+<ul>
+    <li>You must be age 13 or older</li>
+    <li>You must live in Davidson County or Goodlettsville</li>
+    <li>You must provide your email address</li>
+
 				{/if}
 			</div>
 			{if (isset($selfRegResult))}

@@ -22,7 +22,7 @@ class GoDeeperData{
 			// Use Syndetics Go-Deeper Data.
 			if (!empty($configArray['Syndetics']['key'])){
 				$clientKey = $configArray['Syndetics']['key'];
-				$requestUrl = "http://syndetics.com/index.aspx?isbn=$isbn/INDEX.XML&client=$clientKey&type=xw10&upc=$upc";
+				$requestUrl = "https://secure.syndetics.com/index.aspx?isbn=$isbn/INDEX.XML&client=$clientKey&type=xw10&upc=$upc";
 				//echo($requestUrl . "\r\n");
 
 				try{
@@ -238,7 +238,7 @@ class GoDeeperData{
 			try{
 				$clientKey = $configArray['Syndetics']['key'];
 				//Load the index page from syndetics
-				$requestUrl = "http://syndetics.com/index.aspx?isbn=$isbn/SUMMARY.XML&client=$clientKey&type=xw10&upc=$upc";
+				$requestUrl = "https://secure.syndetics.com/index.aspx?isbn=$isbn/SUMMARY.XML&client=$clientKey&type=xw10&upc=$upc";
 
 				//Get the XML from the service
 				$ctx = stream_context_create(array(
@@ -326,7 +326,7 @@ class GoDeeperData{
 		if (!$tocData || isset($_REQUEST['reload'])){
 			$clientKey = $configArray['Syndetics']['key'];
 			//Load the index page from syndetics
-			$requestUrl = "http://syndetics.com/index.aspx?isbn=$isbn/TOC.XML&client=$clientKey&type=xw10&upc=$upc";
+			$requestUrl = "https://secure.syndetics.com/index.aspx?isbn=$isbn/TOC.XML&client=$clientKey&type=xw10&upc=$upc";
 
 			try{
 				//Get the XML from the service
@@ -381,7 +381,7 @@ class GoDeeperData{
 
 		if (!$fictionData){
 			$clientKey = $configArray['Syndetics']['key'];
-			$requestUrl = "http://syndetics.com/index.aspx?isbn=$isbn/FICTION.XML&client=$clientKey&type=xw10&upc=$upc";
+			$requestUrl = "https://secure.syndetics.com/index.aspx?isbn=$isbn/FICTION.XML&client=$clientKey&type=xw10&upc=$upc";
 
 			try{
 				//Get the XML from the service
@@ -514,7 +514,7 @@ class GoDeeperData{
 			$clientKey = $configArray['Syndetics']['key'];
 
 			//Load the index page from syndetics
-			$requestUrl = "http://syndetics.com/index.aspx?isbn=$isbn/ANOTES.XML&client=$clientKey&type=xw10&upc=$upc";
+			$requestUrl = "https://secure.syndetics.com/index.aspx?isbn=$isbn/ANOTES.XML&client=$clientKey&type=xw10&upc=$upc";
 
 			try{
 				//Get the XML from the service
@@ -556,7 +556,7 @@ class GoDeeperData{
 			$clientKey = $configArray['Syndetics']['key'];
 
 			//Load the index page from syndetics
-			$requestUrl = "http://syndetics.com/index.aspx?isbn=$isbn/DBCHAPTER.XML&client=$clientKey&type=xw10&upc=$upc";
+			$requestUrl = "https://secure.syndetics.com/index.aspx?isbn=$isbn/DBCHAPTER.XML&client=$clientKey&type=xw10&upc=$upc";
 
 			try{
 				//Get the XML from the service
@@ -628,7 +628,7 @@ class GoDeeperData{
 		if (!$summaryData){
 			$clientKey = $configArray['Syndetics']['key'];
 			//Load the index page from syndetics
-			$requestUrl = "http://syndetics.com/index.aspx?isbn=$isbn/VIDEOCLIP.XML&client=$clientKey&type=xw10&upc=$upc";
+			$requestUrl = "https://secure.syndetics.com/index.aspx?isbn=$isbn/VIDEOCLIP.XML&client=$clientKey&type=xw10&upc=$upc";
 
 			try{
 				//Get the XML from the service
@@ -673,7 +673,7 @@ class GoDeeperData{
 			$clientKey = $configArray['Syndetics']['key'];
 
 			//Load the index page from syndetics
-			$requestUrl = "http://syndetics.com/index.aspx?isbn=$isbn/AVSUMMARY.XML&client=$clientKey&type=xw10&upc=$upc";
+			$requestUrl = "https://secure.syndetics.com/index.aspx?isbn=$isbn/AVSUMMARY.XML&client=$clientKey&type=xw10&upc=$upc";
 
 			try{
 				//Get the XML from the service

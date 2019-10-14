@@ -357,7 +357,7 @@ class Record_Reviews extends Record_Record
 		$timer->logTime("Got list of syndetic reviews to show");
 
 		//first request url
-		$url = 'https://syndetics.com/index.aspx?isbn=' . $isbn . '/' .
+		$url = 'https://www.syndetics.com/index.aspx?isbn=' . $isbn . '/' .
                'index.xml&client=' . $id . '&type=rw12,hw7';
 
 		//find out if there are any reviews
@@ -381,7 +381,7 @@ class Record_Reviews extends Record_Record
 			$nodes = $xmldoc->getElementsByTagName($source);
 			if ($nodes->length) {
 				// Load reviews
-				$url = 'https://syndetics.com/index.aspx?isbn=' . $isbn . '/' .
+				$url = 'https://www.syndetics.com/index.aspx?isbn=' . $isbn . '/' .
 				$sourceInfo['file'] . '&client=' . $id . '&type=rw12,hw7';
 
 				$client->setURL($url);

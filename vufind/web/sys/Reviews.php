@@ -163,7 +163,7 @@ class ExternalReviews
 
 		//first request url
 		$baseUrl = isset($configArray['Syndetics']['url']) ?
-		$configArray['Syndetics']['url'] : 'https://syndetics.com';
+		$configArray['Syndetics']['url'] : 'https://www.syndetics.com';
 		$url = $baseUrl . '/index.aspx?isbn=' . $this->isbn . '/' .
                'index.xml&client=' . $id . '&type=rw12,hw7';
 

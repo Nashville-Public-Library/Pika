@@ -41,7 +41,9 @@
 namespace Pika\PatronDrivers;
 
 use Curl\Curl;
+use DateTime;
 use ErrorException;
+use InvalidArgumentException;
 use \Pika\Logger;
 use \Pika\Cache;
 use Location;
@@ -51,9 +53,13 @@ use User;
 
 
 class Sierra {
+	// TODO: Clean up logging
 
-	// Adding global variables to class during object construction to avoid repeated calls to global.
+	// @var Pika/Memcache instance
 	public  $memCache;
+	// @var $logger Pika/Logger instance
+	private $logger;
+
 	private $configArray;
 	// ----------------------
 	/* @var $oAuthToken oAuth2Token */
@@ -62,8 +68,6 @@ class Sierra {
 	private $apiLastError = false;
 	// Needs to be public
 	public $accountProfile;
-	/* @var $patronId int Sierra patron id used for all REST calls. */
-	private $patronId;
 	/* @var $patronBarcode string The patrons barcode */
 	private $patronBarcode;
 	/* @var $apiUrl string The url for the Sierra API */
@@ -71,12 +75,9 @@ class Sierra {
 	// many ids come from url. example: https://sierra.marmot.org/iii/sierra-api/v5/items/5130034
 	private $urlIdRegExp = "/.*\/(\d*)$/";
 
-	private $logger;
 
 	public function __construct($accountProfile) {
-		// Adding standard globals to class to avoid repeated calling of global.
 		global $configArray;
-		//global $memCache;
 
 		$this->configArray    = $configArray;
 		$this->accountProfile = $accountProfile;
@@ -94,8 +95,7 @@ class Sierra {
 		if(!isset($this->oAuthToken)) {
 			if(!$this->_oAuthToken()) {
 				// logging happens in _oAuthToken()
-
-				return FALSE;
+				return null;
 			}
 		}
 	}
@@ -105,17 +105,19 @@ class Sierra {
 	 *
 	 * GET patrons/{patronId}/checkouts?fields=default%2Cbarcode
 	 *
-	 * @param $patron
+	 * @param User $patron
+	 * @param bool $linkedAccount
 	 * @return array|false
 	 */
-	public function getMyCheckouts($patron){
+	public function getMyCheckouts($patron, $linkedAccount = false){
 
 		$patronCheckoutsCacheKey = "patron_".$patron->barcode."_checkouts";
-		if($patronCheckouts = $this->memCache->get($patronCheckoutsCacheKey)) {
-			$this->logger->info("Found checkouts in memcache:".$patronCheckoutsCacheKey);
-			return $patronCheckouts;
+		if(!$linkedAccount) {
+			if($patronCheckouts = $this->memCache->get($patronCheckoutsCacheKey)) {
+				$this->logger->info("Found checkouts in memcache:".$patronCheckoutsCacheKey);
+				return $patronCheckouts;
+			}
 		}
-
 		$patronId = $this->getPatronId($patron);
 
 		$operation = 'patrons/'.$patronId.'/checkouts';
@@ -218,11 +220,11 @@ class Sierra {
 			unset($checkout);
 		}
 
-		$this->memCache->set($patronCheckoutsCacheKey, $checkouts, $this->configArray['Caching']['patron_profile']);
-		$this->logger->info("Saving checkouts in memcache:".$patronCheckoutsCacheKey);
-
+		if(!$linkedAccount) {
+			$this->memCache->set($patronCheckoutsCacheKey, $checkouts, $this->configArray['Caching']['user']);
+			$this->logger->info("Saving checkouts in memcache:".$patronCheckoutsCacheKey);
+		}
 		return $checkouts;
-
 	}
 
 	/**
@@ -279,8 +281,7 @@ class Sierra {
 	 * @param   string  $password         The patron barcode or pin
 	 * @param   boolean $validatedViaSSO  FALSE
 	 *
-	 * @return  User|null           User object
-	 *                              If an error occurs, return a exception
+	 * @return  User|null           User object or null
 	 * @access  public
 	 */
 	public function patronLogin($username, $password, $validatedViaSSO = FALSE){
@@ -299,19 +300,19 @@ class Sierra {
 			$this->patronBarcode = $barcode;
 			$patronId = $this->_authNameBarcode($username, $password);
 		} else {
-			// TODO: log error
-			trigger_error("ERROR: Invalid loginConfiguration setting.", E_USER_ERROR);
+			$msg = "Invalid loginConfiguration setting.";
+			$this->logger->error($msg);
+			throw new InvalidArgumentException($msg);
+			return null;
 		}
 		// can't find patron
 		if (!$patronId) {
-			// need a better return
+			$msg = "Can't get patron id from Sierra API.";
+			$this->logger->warn($msg, ['barcode'=>$this->patronBarcode]);
 			return null;
 		}
 
-		$this->patronId = $patronId;
-
 		$patron = $this->getPatron($patronId);
-
 		return $patron;
 	}
 
@@ -319,13 +320,11 @@ class Sierra {
 	 * @param int $patronId
 	 * @return User|null
 	 */
-	public function getPatron($patronId = null) {
+	public function getPatron($patronId) {
 		// grab everything from the patron record the api can provide.
 		// titles on hold to patron object
-		if(!isset($patronId) && !isset($this->patronId)) {
-			trigger_error("ERROR: getPatron expects at least on parameter.", E_USER_ERROR);
-		} else {
-			$patronId = isset($patronId) ? $patronId : $this->patronId;
+		if(!isset($patronId)) {
+			throw new InvalidArgumentException("ERROR: getPatron expects at least on parameter.");
 		}
 
 		$patronObjectCacheKey = 'patron_'.$this->patronBarcode.'_patron';
@@ -339,8 +338,8 @@ class Sierra {
 
 		$patron = new User();
 		$patron->barcode = $this->patronBarcode;
-		// check if the user exists in database
-		// use barcode as sierra patron id is no longer be stored in database as username.
+		// check if the user exists in Pika database
+		// use barcode as sierra patron id is no longer stored in database as username.
 		// get the login configuration barcode_pin or name_barcode
 		$loginMethod    = $this->accountProfile->loginConfiguration;
 		$patron->source = $this->accountProfile->name;
@@ -351,6 +350,7 @@ class Sierra {
 		}
 		// does the user exist in database?
 		if(!$patron->find(true)) {
+			$this->logger->info('Patron does not exits in Pika database.', ['barcode'=>$this->patronBarcode]);
 			$createPatron = true;
 		}
 
@@ -391,7 +391,19 @@ class Sierra {
 		if(isset($pInfo->emails) && $pInfo->emails[0] != $patron->email) {
 			$updatePatron = true;
 			$patron->email = $pInfo->emails[0];
+		} else {
+			if(empty($patron->email)) {
+				$patron->email = '';
+			}
 		}
+		// username -- this is unique?
+		if(!empty($patron->email)) {
+			$patron->username = $patron->email;
+		} else {
+			$username = strtolower($firstName) . '.' . strtolower($lastName);
+			$patron->username = $username;
+		}
+
 		// check phones
 		$homePhone   = '';
 		$mobilePhone = '';
@@ -400,12 +412,23 @@ class Sierra {
 				$homePhone  = $phone->number;
 			} elseif ($phone->type == 'o') {
 				$mobilePhone = $phone->number;
+			} elseif ($phone->type == 'p') {
+				$patron->workPhone = $phone->number;
 			}
 		}
+
 		// TODO: Need to figure out which phone to use. Maybe mobile phone?
-		if(isset($homePhone) && $patron->phone != $homePhone) {
+		// try home phone first then mobile phone
+		if(!empty($homePhone) && $patron->phone != $homePhone) {
 			$updatePatron = true;
 			$patron->phone = $homePhone;
+		} elseif(!isset($homePhone) && isset($mobilePhone) && $patron->phone != $mobilePhone) {
+			$updatePatron = true;
+			$patron->phone = $mobilePhone;
+		} else {
+			if(empty($patron->phone)) {
+				$patron->phone = '';
+			}
 		}
 		// check home location
 		$location       = new Location();
@@ -461,6 +484,7 @@ class Sierra {
 		if($patron->address2 != '') {
 			$addressParts = explode(',', $patron->address2);
 			// some libraries may not use ','  after city so make sure we have parts
+			// todo: need to handle more than 2 address lines for sites like Sacramento
 			if (count($addressParts) > 1 ){
 				$city = trim($addressParts[0]);
 				$stateZip = trim($addressParts[1]);
@@ -493,9 +517,9 @@ class Sierra {
 		}
 		// account expiration
 		try {
-			$expiresDate = new \DateTime($pInfo->expirationDate);
+			$expiresDate = new DateTime($pInfo->expirationDate);
 			$patron->expires = $expiresDate->format('m-d-Y');
-			$nowDate     = new \DateTime('now');
+			$nowDate     = new DateTime('now');
 			$dateDiff    = $nowDate->diff($expiresDate);
 			if($dateDiff->days <= 30) {
 				$patron->expireClose = 1;
@@ -510,7 +534,7 @@ class Sierra {
 		} catch (\Exception $e) {
 			$patron->expires = '00-00-0000';
 			// TODO: need to log the error
-			echo $e->getMessage();
+			//echo $e->getMessage();
 		}
 		// notices
 		$patron->notices = $pInfo->fixedFields->{'268'}->value;
@@ -545,12 +569,20 @@ class Sierra {
 
 		if($createPatron) {
 			$patron->created = date('Y-m-d');
-			$patron->insert();
+			if($patron->insert() === false) {
+				$this->logger->error('Could not save patron to Pika database.', ['barcode'=>$this->patronBarcode,
+				                                                                 'error'=>$patron->_lastError->userinfo,
+				                                                                 'backtrace'=>$patron->_lastError->backtrace]);
+				throw new ErrorException('Error saving patron to Pika database');
+				return null;
+			} else {
+				$this->logger->info('Saved patron to Pika database.', ['barcode'=>$this->patronBarcode]);
+			}
 		} elseif ($updatePatron && !$createPatron) {
 			$patron->update();
 		}
 		$this->logger->info("Saving patron to memcache:".$patronObjectCacheKey);
-		$this->memCache->set($patronObjectCacheKey, $patron, $this->configArray['Caching']['patron_profile']);
+		$this->memCache->set($patronObjectCacheKey, $patron, $this->configArray['Caching']['user']);
 		return $patron;
 	}
 
@@ -562,9 +594,6 @@ class Sierra {
 	 */
 	public function getPatronId($patronOrBarcode)
 	{
-		if(isset($this->patronId)) {
-			return $this->patronId;
-		}
 		// if a patron object was passed
 		if(is_object($patronOrBarcode)) {
 			$barcode = $patronOrBarcode->barcode;
@@ -573,7 +602,7 @@ class Sierra {
 			$barcode = $patronOrBarcode;
 		}
 
-		$patronIdCacheKey = "patron_".$barcode."barcode";
+		$patronIdCacheKey = "patron_".$barcode."_sierraid";
 		if($patronId = $this->memCache->get($patronIdCacheKey)) {
 			return $patronId;
 		}
@@ -587,46 +616,175 @@ class Sierra {
 		$r = $this->_doRequest('patrons/find', $params);
 		// there was an error with the last call -- use $this->apiLastError for messages.
 		if(!$r) {
+			$this->logger->warn('Could not get patron ID.', ['barcode'=>$patron->barcode, 'error'=>$this->apiLastError]);
 			return false;
 		}
 
 		$this->memCache->set($patronIdCacheKey, $r->id, $this->configArray['Caching']['koha_patron_id']);
 
-		$this->patronId = $r->id;
-
-		return $this->patronId;
+		return $r->id;
 	}
 
+
+	/**
+	 * Update a patrons profile information
+	 *
+	 * Address is in the form of:
+	 * [care of(CO) optional]
+	 * Street[, optional] [APT/Suite optional]
+	 * City[, optional] State Zip
+	 *
+	 *
+	 * PUT patrons/{id}
+	 * @param  User  $patron
+	 * @param  bool  $canUpdateContactInfo
+	 * @return array Array of errors or empty array on success
+	 */
 	public function updatePatronInfo($patron, $canUpdateContactInfo){
-		// TODO: Implement updatePatronInfo() method.
+		if(!$canUpdateContactInfo) {
+			return ['You can not update your information.'];
+		}
+
+		$patronId = $this->getPatronId($patron);
+		if(!$patronId) {
+			return ['An error occurred. Please try again later.'];
+		}
+
+		// store city, state, zip in address2 so we can put them together.
+		$cityStZip = [];
+		$phones    = [];
+		$emails    = [];
+		$errors    = [];
+		foreach($_POST as $key=>$val) {
+			switch($key) {
+				case 'address1':
+					if(empty($val)) {
+						$errors[] = "Street address is required.";
+					} else {
+						$address1 = $val;
+					}
+					break;
+				case 'city':
+				case 'state':
+				case 'zip':
+					if(empty($val)) {
+						$errors[] = "City, state and ZIP are required.";
+					} else {
+						$cityStZip[$key] = $val;
+					}
+					break;
+				case 'phone': // primary phone
+					// todo: does this need to set an empty object-- if someone wanted to remove their phone #?
+					if(!empty($val)){
+						$phones[] = (object)['number'=>$val, 'type'=>'t'];
+					}
+					break;
+				case 'workPhone': // alt phone
+					if(!empty($val)){
+						$phones[] = (object)['number'=>$val, 'type'=>'p'];
+					}
+					break;
+				case 'email':
+					if(!empty($val)) {
+						$emails[] = $val;
+					}
+					break;
+				case 'pickupLocation':
+					$homeLibraryCode = $val;
+					break;
+				case 'notices':
+					if(!empty($val)) {
+						$notices = $val;
+					} else {
+						$notices = '-';
+					}
+			}
+		}
+
+		if(!empty($errors)) {
+			return $errors;
+		}
+
+		// fix up city state zip
+		$address2 = $cityStZip['city'] . ', ' . $cityStZip['state'] . ' ' . $cityStZip['zip'];
+
+		$params = [
+			'emails'          => $emails,
+			'addresses'       => [ (object)['lines' => [$address1, $address2], "type" => 'a'] ],
+			'phones'          => $phones,
+			'homeLibraryCode' => $homeLibraryCode,
+			'fixedFields'     => (object)['268'=>(object)["label" => "Notice Preference", "value" => $notices]]
+		];
+
+		$operation = 'patrons/'.$patronId;
+		$r = $this->_doRequest($operation, $params, 'PUT');
+
+		if(!$r){
+			$this->logger->warn("Unable to update patron", ["message"=>$this->apiLastError]);
+			$errors[] = "An error occurred. Please try in again later.";
+		}
+
+		// remove patron object from cache
+		$this->memCache->delete('patron_'.$patron->barcode.'_patron');
+
+		return $errors;
 	}
 
+
+	/**
+	 * Update a users PIN
+	 *
+	 * PUT patrons/{id}
+	 *
+	 * @param User   $patron
+	 * @param string $oldPin
+	 * @param string $newPin
+	 * @param string $confirmNewPin
+	 * @return string Error or success message.
+	 */
+	public function updatePin($patron, $oldPin, $newPin, $confirmNewPin){
+		$patronId = $this->_authBarcodePin($patron->barcode, $oldPin);
+
+		if(!$patronId) {
+			return "Your current PIN is incorrect. Please try again.";
+		}
+
+		if(!($newPin == $confirmNewPin)) {
+			return "PIN and PIN confirmation do not match. Please try again.";
+		}
+
+		$operation = 'patrons/'.$patronId;
+		$params    = ['pin' => $newPin];
+
+		$r = $this->_doRequest($operation, $params, 'PUT');
+
+		if(!$r) {
+			$message = $this->_getPrettyError();
+			return 'Could not update PIN: '. $message;
+		}
+		$patron->cat_password = $newPin;
+		$patron->update();
+
+		return 'Your PIN has been updated';
+	}
+
+	public function resetPin($patron, $newPin, $resetToken = null){
+		// TODO: Implement resetPin() method.
+	}
 	/**
 	 * Get fines for a patron
 	 * GET patrons/{uid}/fines
 	 * Returns array of fines
-	 * array(
-	 * [
-	 * amount,
-	 * amountOutstanding,
-	 * date,
-	 * reason,
-	 * message
-	 * ]
+	 * array([amount,amountOutstanding,date,reason,message])
 	 *
 	 * @param $patron User
 	 * @return array|bool
 	 */
 	public function getMyFines($patron){
-
 		// find the sierra patron id
-		if (!isset($this->patronId)) {
-			$patronId = $this->getPatronId($patron);
-			if($patronId) {
-				$this->patronId = $patronId;
-			} else {
-				return false;
-			}
+		$patronId = $this->getPatronId($patron);
+		if(!$patronId) {
+			return false;
 		}
 		// check memCache
 		$patronFinesCacheKey = 'patron_'.$patron->barcode.'_fines';
@@ -637,7 +795,7 @@ class Sierra {
 		$params = [
 			'fields' => 'default,assessedDate,itemCharge,chargeType,paidAmount,datePaid,description,returnDate,location,description'
 		];
-		$operation = 'patrons/'.$this->patronId.'/fines';
+		$operation = 'patrons/'.$patronId.'/fines';
 		$fInfo = $this->_doRequest($operation, $params);
 		if(!$fInfo) {
 			// TODO: check last error.
@@ -701,7 +859,7 @@ class Sierra {
 				'details' => $details
 			];
 		}
-		$this->memCache->set($patronFinesCacheKey, $r, $this->configArray['Caching']['patron_profile']);
+		$this->memCache->set($patronFinesCacheKey, $r, $this->configArray['Caching']['user']);
 		return $r;
 	}
 
@@ -713,16 +871,15 @@ class Sierra {
 	 * @param  User $patron
 	 * @return array|bool
 	 */
-	public function getMyHolds($patron){
+	public function getMyHolds($patron, $linkedAccount = false) {
 
 		$patronHoldsCacheKey = "patron_".$patron->barcode."_holds";
-		if($patronHolds = $this->memCache->get($patronHoldsCacheKey)) {
-			$this->logger->info("Found holds in memcache:".$patronHoldsCacheKey);
+		if ($patronHolds = $this->memCache->get($patronHoldsCacheKey)) {
+			$this->logger->info("Found holds in memcache:" . $patronHoldsCacheKey);
 			return $patronHolds;
 		}
 
 		if(!$patronId = $this->getPatronId($patron)) {
-			// TODO: need to do something here
 			return false;
 		}
 
@@ -731,8 +888,6 @@ class Sierra {
 		$holds = $this->_doRequest($operation, $params);
 
 		if(!$holds) {
-			// check last error
-			// todo: message? log?
 			return false;
 		}
 
@@ -776,7 +931,11 @@ class Sierra {
 			// status, cancelable, freezable
 			switch ($hold->status->code) {
 				case '0':
-					$status     = 'On hold';
+					if($hold->frozen) {
+						$status = "Frozen";
+					} else {
+						$status = 'On hold';
+					}
 					$cancelable = true;
 					$freezeable = true;
 					if($canUpdatePL) {
@@ -865,6 +1024,7 @@ class Sierra {
 				$h['title']              = $titleAndAuthor['title'];
 				$h['author']             = $titleAndAuthor['author'];
 				$h['sortTitle']          = $titleAndAuthor['sort_title'];
+				// todo: Need to make this specific to the theme.
 				$h['coverUrl']           = '/interface/themes/marmot/images/InnReachCover.png';
 				$h['freezeable']         = false;
 				$h['locationUpdateable'] = false;
@@ -909,9 +1069,13 @@ class Sierra {
 
 		$return['available']   = $availableHolds;
 		$return['unavailable'] = $unavailableHolds;
+		// for linked accounts we might run into problems
+		unset($availableHolds, $unavailableHolds);
 
-		$this->memCache->set($patronHoldsCacheKey, $return, $this->configArray['Caching']['patron_profile']);
-		$this->logger->info("Saving holds in memcache:".$patronHoldsCacheKey);
+		if(!$linkedAccount){
+			$this->memCache->set($patronHoldsCacheKey, $return, $this->configArray['Caching']['user']);
+			$this->logger->info("Saving holds in memcache:".$patronHoldsCacheKey);
+		}
 
 		return $return;
 	}
@@ -929,7 +1093,7 @@ class Sierra {
 	 */
 	public function placeHold($patron, $recordId, $pickupBranch, $cancelDate = null) {
 		if($cancelDate) {
-			$d        = \DateTime::createFromFormat('m/d/Y', $cancelDate); // convert needed by date
+			$d        = DateTime::createFromFormat('m/d/Y', $cancelDate); // convert needed by date
 			$neededBy = $d->format('Y-m-d');
 		} else {
 			$neededBy = false;
@@ -1036,7 +1200,8 @@ class Sierra {
 		if(!$r) {
 			$return = ['success' => false];
 			if($this->apiLastError) {
-				$return['message'] = $this->apiLastError;
+				$message = $this->_getPrettyError();
+				$return['message'] = $message;
 			} else {
 				$return['message'] = "Unable to change pickup location. Please contact your library for further assistance.";
 			}
@@ -1082,7 +1247,8 @@ class Sierra {
 		if(!$r) {
 			$return = ['success' => false];
 			if($this->apiLastError) {
-				$return['message'] = $this->apiLastError;
+				$message = $this->_getPrettyError();
+				$return['message'] = $message;
 			} else {
 				$return['message'] = "Unable to cancel your hold. Please contact your library for further assistance.";
 			}
@@ -1386,7 +1552,6 @@ class Sierra {
 		// return either false on fail or user sierra id on success.
 		if($valid === TRUE) {
 			$result = $r->id;
-			$this->patronId = $result;
 		} else {
 			$result = FALSE;
 		}
@@ -1530,8 +1695,8 @@ class Sierra {
 		$operationUrl = $this->apiUrl.$operation;
 		try {
 			$c = new Curl();
-		} catch (ErrorException $e) {
-			// TODO: log exception, set curl error
+		} catch (Exception $e) {
+			$this->logger->error($e->getMessage(), ['stacktrace'=>$e->getTraceAsString()]);
 			return false;
 		}
 		$c->setHeaders($headers);
@@ -1573,6 +1738,7 @@ class Sierra {
 			// This will probably never be triggered since we have the try/catch above.
 			$message = 'curl Error: '.$c->getCurlErrorCode().': '.$c->getCurlErrorMessage();
 			$this->apiLastError = $message;
+			$this->logger->warning($message);
 			return false;
 		} elseif ($c->isHttpError()) {
 			// this will be a 4xx response
@@ -1582,9 +1748,11 @@ class Sierra {
 				$message = 'API Error: ' . $c->response->code . ': ' . $c->response->name;
 				if(isset($c->response->description)){
 					$message = $message . " " . $c->response->description;
+					$this->logger->warning($message, ['api_response'=>$c->response]);
 				}
 			} else {
 				$message = 'HTTP Error: '.$c->getErrorCode().': '.$c->getErrorMessage();
+				$this->logger->warning($message);
 			}
 			$this->apiLastError = $message;
 			return false;
@@ -1598,7 +1766,7 @@ class Sierra {
 		} else {
 			$r = $c->response;
 		}
-
+		$this->logger->debug('API response for ['.$method.']'.$operation, ['method'=>$operation, 'response'=>$r]);
 		$c->close();
 		return $r;
 	}

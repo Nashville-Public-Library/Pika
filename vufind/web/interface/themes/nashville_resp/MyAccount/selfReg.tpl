@@ -21,7 +21,7 @@
 				{if $selfRegistrationFormMessage}
 					{$selfRegistrationFormMessage}
 				{else}
-					<p>Residents of Davidson County or the City of Goodlettsville may register for a digital access card. We will email you an account number that gives you immediate access to our online streaming, download, and database content for 45 days. To maintain access indefinitely, visit any <a href="https://library.nashville.org/locations">NPL branch</a> with photo ID and <a href="https://library.nashville.org/get-card#getting-a-card">proof of Davidson County residency</a>.</p>
+					<p>Residents of Davidson County or the City of Goodlettsville may register for a digital access card. We will email you a card number that gives you immediate access to our online streaming, download, and database content for 45 days. To maintain access indefinitely, visit any <a href="https://library.nashville.org/locations">NPL branch</a> with photo ID and <a href="https://library.nashville.org/get-card#getting-a-card">proof of Davidson County residency</a>.</p>
 
 <p>By completing this form, you are agreeing to receive news and updates from Nashville Public Library and <a href="https://nplf.org">Nashville Public Library Foundation</a>.</p>
 

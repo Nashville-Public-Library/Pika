@@ -394,6 +394,11 @@
 							{/if}
 							{if ($ils == 'CarlX') && $loggedIn && (array_key_exists('opacAdmin', $userRoles) || array_key_exists('libraryAdmin', $userRoles) || array_key_exists('locationReports', $userRoles))}
 								<div class="adminMenuLink{if $action == "StudentBarcodes"} active{/if}"><a href="{$path}/Report/StudentBarcodes">Student Barcodes by Class</a></div>
+
+{/if}
+                                                        {if ($ils == 'CarlX') && $loggedIn && (array_key_exists('opacAdmin', $userRoles) || array_key_exists('libraryAdmin', $userRoles) || array_key_exists('locationReports', $userRoles))}
+                                                                <div class="adminMenuLink"><a href="https://nashvillepl.libanswers.com/form.php?queue_id=2457">Limitless Libraries Help Desk</a></div>
+
 							{/if}
 						</div>
 					</div>

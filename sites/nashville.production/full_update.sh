@@ -36,7 +36,7 @@ OUTPUT_FILE="/var/log/pika/${PIKASERVER}/full_update_output.log"
 DAYOFWEEK=$(date +"%u")
 
 # Actual CarlX extract size 2017 07 03 - 1021325895  - pascal
-MINFILE1SIZE=$((1085000000))
+MINFILE1SIZE=$((1071000000))
 
 # determine whether this server is production or test
 CONFIG=/usr/local/VuFind-Plus/sites/${PIKASERVER}/conf/config.pwd.ini
@@ -106,7 +106,8 @@ expect copyCarlXExport.exp nashville.production >> ${OUTPUT_FILE}
 
 
 #Extract Lexile Data
-cd /data/pika/; curl --remote-name --remote-time --silent --show-error --compressed --time-cond /data/pika/lexileTitles.txt https://cassini.marmot.org/lexileTitles.txt
+# JAMES STAUB turned off Lexile fetch 2019 11 05
+#cd /data/pika/; curl --remote-name --remote-time --silent --show-error --compressed --time-cond /data/pika/lexileTitles.txt https://cassini.marmot.org/lexileTitles.txt
 
 #Extract AR Data
 cd /data/pika/accelerated_reader; curl --remote-name --remote-time --silent --show-error --compressed --time-cond /data/pika/accelerated_reader/RLI-ARDataTAB.txt https://cassini.marmot.org/RLI-ARDataTAB.txt

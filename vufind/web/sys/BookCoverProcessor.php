@@ -112,13 +112,13 @@ class BookCoverProcessor {
 						return;
 					}
 				}
-			}
-
+		
 			// Now try some special cases with ILS records
 			// (Fetching a custom cover needs to take precedence over checking outside content providers)
 			if ($source == 'ils' && $this->getCoverFromMarc()){
 				return;
 			}
+		}
 
 			// Now try outside content providers with the supplied ISN, ISBN, or UPC
 			$this->log("Looking for cover from providers", PEAR_LOG_INFO);

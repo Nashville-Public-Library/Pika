@@ -55,6 +55,7 @@
 						{if $showFines}
 							<div class="myAccountLink{if $action=="Fines"} active{/if}" title="Fines and account messages"><a href="{$path}/MyAccount/Fines">{translate text='Fines and Messages'}</a></div>
 						{/if}
+<a href="https://library.nashville.org/checkouts-renewals-holds">Loan Rules</a>
 						{if $enableMaterialsRequest}
 							<div class="myAccountLink{if $pageTemplate=="myMaterialRequests.tpl"} active{/if}" title="{translate text='Materials_Request_alt'}s">
 								<a href="{$path}/MaterialsRequest/MyRequests">{translate text='Materials_Request_alt'}s <span class="materialsRequests-placeholder"><img src="{$path}/images/loading.gif" alt="loading"></span></a>

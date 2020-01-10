@@ -50,8 +50,7 @@
 							{*<p class="help-block"><a href="#" onclick="$('#loginPasswordConfirmRow').show();">Create new PIN</p>*}
 							{if $enableSelfRegistration == 1}
 								<p class="help-block">
-									<a href="http://library.nashville.org/card/crd_getcard.asp">Get a Card</a></br>
-                                                                        <a href="https://nashvillepl.libanswers.com/form.php?queue_id=2431">Forgot PIN</a>
+								<a href="https://nashvillepl.libanswers.com/form.php?queue_id=2431">Forgot PIN</a> / <a href="http://library.nashville.org/card/crd_getcard.asp">Get a card</a> / <a href="https://library.nashville.org/checkouts-renewals-holds">Loan rules</a></br>
 								</p>
 							{/if}
 

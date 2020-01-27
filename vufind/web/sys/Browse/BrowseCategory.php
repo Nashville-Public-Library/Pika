@@ -321,7 +321,7 @@ class BrowseCategory extends DB_DataObject{
 			$this->defaultSort = 'relevance';
 		}elseif ($solrSort == 'popularity desc'){
 			$this->defaultSort = 'popularity';
-		}elseif ($solrSort == 'sort_year asc'){
+		}elseif ($solrSort == 'days_since_added asc' || $solrSort == 'year desc,title asc'){
 			$this->defaultSort = 'newest_to_oldest';
 			// this option is not given to select
 //		}elseif ($solrSort == 'days_since_added desc'){

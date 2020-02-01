@@ -360,7 +360,7 @@ class CarlX extends SIP2Driver{
 		if (!$connectionPassed){
 			return false;
 		}
-
+print_r("get last request: ", $this->soapClient->__getLastRequest() . "\n\n");
 		return $result;
 	}
 
@@ -865,6 +865,10 @@ class CarlX extends SIP2Driver{
 			$firstName  = trim(strtoupper($_REQUEST['firstName']));
 			$middleName = trim(strtoupper($_REQUEST['middleName']));
 			$lastName   = trim(strtoupper($_REQUEST['lastName']));
+			if ($library && $library->promptForBirthDateInSelfReg) {
+				$birthDate			= trim($_REQUEST['birthDate']);
+				$date				= strtotime(str_replace('-','/',$birthDate));
+			};			
 			$address    = trim(strtoupper($_REQUEST['address']));
 			$city       = trim(strtoupper($_REQUEST['city']));
 			$state      = trim(strtoupper($_REQUEST['state']));
@@ -908,15 +912,99 @@ class CarlX extends SIP2Driver{
 				$request->SearchTerms->Value		= $email;
 				$request->PagingParameters		= new stdClass();
 				$request->PagingParameters->StartPos	= 0;
-				$request->PagingParameters->NoOfRecords	= 1;
+				$request->PagingParameters->NoOfRecords	= 20;
 				$request->Modifiers			= new stdClass();
 				$request->Modifiers->InstitutionCode	= 'NASH';
 				$result = $this->doSoapRequest('searchPatron', $request, $this->patronWsdl, $this->genericResponseSOAPCallOptions);
 				if ($result) {
 					$noEmailMatch = stripos($result->ResponseStatuses->ResponseStatus->ShortMessage, 'No matching records found');
 					if ($noEmailMatch === false) {
+						if ($result->PagingResult->NoOfRecords > 1) {
+							$patronIdsMatching = array_map(function($o) { return $o->PatronID; }, $result->Patrons); // solution for PHP < 7.0, see https://stackoverflow.com/questions/1118994/php-extracting-a-property-from-an-array-of-objects 
+							$patronIdsMatching = implode(", ", $patronIdsMatching);
+						} elseif ($result->PagingResult->NoOfRecords == 1) {
+							$patronIdsMatching =  $result->Patrons->PatronID;
+						}
 						global $logger;
-						$logger->log('Online Registration Email already exists in Carl. Email: ' . $email . ' IP: ' . $active_ip, PEAR_LOG_ERR);
+						$logger->log('Online Registration Email already exists in Carl. Email: ' . $email . ' IP: ' . $active_ip . ' PatronIDs: ' . $patronIdsMatching, PEAR_LOG_ERR);
+
+						// SEND EMAIL TO DUPLICATE EMAIL ADDRESS
+						$body = $interface->fetch('Emails/self-registration-denied-duplicate-email.tpl');
+						require_once ROOT_DIR . '/sys/Mailer.php';
+						$mail = new VuFindMailer();
+						$subject = 'Nashville Public Library: you have an account!';
+						$emailResult = $mail->send($email, 'no-reply@nashville.gov', $subject, $body);
+						if ($emailResult === true){
+							$result = array(
+								'result' => true,
+								'message' => 'Your e-mail was sent successfully.'
+							);
+						} elseif (PEAR_Singleton::isError($emailResult)){
+							$interface->assign('error', "Your request could not be sent: {$emailResult->message}.");
+						} else {
+							$interface->assign('error', "Your request could not be sent due to an unknown error.");
+							global $logger;
+							$logger->log("Mail List Failure (unknown reason), parameters: $email, $newObject->email, $subject, $body", PEAR_LOG_ERR);
+						}
+
+						return array(
+							'success' => false,
+							'barcode' => $tempPatronID,
+						);
+					}
+				}
+
+				// DENY REGISTRATION IF DUPLICATE EXACT FIRST NAME + LAST NAME + BIRTHDATE
+				$request				= new stdClass();
+				$request->Modifiers			= '';
+				$request->AllSearchTermMatch		= 'true';
+				$request->SearchTerms			= array();
+				$request->SearchTerms[0]['ApplicationType']	= 'exact match';
+				$request->SearchTerms[0]['Attribute']	= 'First Name';
+				$request->SearchTerms[0]['Value']	= $firstName;
+				$request->SearchTerms[1]['ApplicationType']	= 'exact match';
+				$request->SearchTerms[1]['Attribute']	= 'Last Name';
+				$request->SearchTerms[1]['Value']	= $lastName;
+				$request->SearchTerms[2]['ApplicationType']	= 'exact match';
+				$request->SearchTerms[2]['Attribute']	= 'Birthdate';
+				$request->SearchTerms[2]['Value']	= date('Ymd', $date);
+				$request->PagingParameters		= new stdClass();
+				$request->PagingParameters->StartPos	= 0;
+				$request->PagingParameters->NoOfRecords	= 20;
+				$request->Modifiers			= new stdClass();
+				$request->Modifiers->InstitutionCode	= 'NASH';
+				$result = $this->doSoapRequest('searchPatron', $request, $this->patronWsdl, $this->genericResponseSOAPCallOptions);
+				if ($result) {
+					$noNameBirthdateMatch = stripos($result->ResponseStatuses->ResponseStatus->ShortMessage, 'No matching records found');
+					if ($noNameBirthDateMatch === false) {
+						if ($result->PagingResult->NoOfRecords > 1) {
+							$patronIdsMatching = array_map(function($o) { return $o->PatronID; }, $result->Patrons); // solution for PHP < 7.0, see https://stackoverflow.com/questions/1118994/php-extracting-a-property-from-an-array-of-objects
+							$patronIdsMatching = implode(", ", $patronIdsMatching);
+						} elseif ($result->PagingResult->NoOfRecords == 1) {
+							$patronIdsMatching =  $result->Patrons->PatronID;
+						}
+						global $logger;
+						$logger->log('Online Registration Name+Birthdate already exists in Carl. Name: ' . $firstName . ' ' . $lastName . ' IP: ' . $active_ip . ' PatronIDs: ' . $patronIdsMatching, PEAR_LOG_ERR);
+
+						// SEND EMAIL TO DUPLICATE NAME+BIRTHDATE REGISTRANT EMAIL ADDRESS
+						$body = $interface->fetch('Emails/self-registration-denied-duplicate-name+birthdate.tpl');
+						require_once ROOT_DIR . '/sys/Mailer.php';
+						$mail = new VuFindMailer();
+						$subject = 'Nashville Public Library: you might already have an account!';
+						$emailResult = $mail->send($email, 'no-reply@nashville.gov', $subject, $body);
+						if ($emailResult === true){
+							$result = array(
+								'result' => true,
+								'message' => 'Your e-mail was sent successfully.'
+							);
+						} elseif (PEAR_Singleton::isError($emailResult)){
+							$interface->assign('error', "Your request could not be sent: {$emailResult->message}.");
+						} else {
+							$interface->assign('error', "Your request could not be sent due to an unknown error.");
+							global $logger;
+							$logger->log("Mail List Failure (unknown reason), parameters: $email, $newObject->email, $subject, $body", PEAR_LOG_ERR);
+						}
+
 						return array(
 							'success' => false,
 							'barcode' => $tempPatronID,

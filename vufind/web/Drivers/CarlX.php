@@ -917,8 +917,8 @@ print_r("get last request: ", $this->soapClient->__getLastRequest() . "\n\n");
 				$request->Modifiers->InstitutionCode	= 'NASH';
 				$result = $this->doSoapRequest('searchPatron', $request, $this->patronWsdl, $this->genericResponseSOAPCallOptions);
 				if ($result) {
-					$noEmailMatch = stripos($result->ResponseStatuses->ResponseStatus->ShortMessage, 'No matching records found');
-					if ($noEmailMatch === false) {
+					$emailMatches = $result->PagingResult->NoOfRecords;
+					if ($emailMatches !== 0) {
 						if ($result->PagingResult->NoOfRecords > 1) {
 							$patronIdsMatching = array_map(function($o) { return $o->PatronID; }, $result->Patrons); // solution for PHP < 7.0, see https://stackoverflow.com/questions/1118994/php-extracting-a-property-from-an-array-of-objects 
 							$patronIdsMatching = implode(", ", $patronIdsMatching);
@@ -975,8 +975,8 @@ print_r("get last request: ", $this->soapClient->__getLastRequest() . "\n\n");
 				$request->Modifiers->InstitutionCode	= 'NASH';
 				$result = $this->doSoapRequest('searchPatron', $request, $this->patronWsdl, $this->genericResponseSOAPCallOptions);
 				if ($result) {
-					$noNameBirthdateMatch = stripos($result->ResponseStatuses->ResponseStatus->ShortMessage, 'No matching records found');
-					if ($noNameBirthDateMatch === false) {
+					$nameBirthdateMatches = $result->PagingResult->NoOfRecords;
+					if ($nameBirthdateMatches !== 0) {
 						if ($result->PagingResult->NoOfRecords > 1) {
 							$patronIdsMatching = array_map(function($o) { return $o->PatronID; }, $result->Patrons); // solution for PHP < 7.0, see https://stackoverflow.com/questions/1118994/php-extracting-a-property-from-an-array-of-objects
 							$patronIdsMatching = implode(", ", $patronIdsMatching);

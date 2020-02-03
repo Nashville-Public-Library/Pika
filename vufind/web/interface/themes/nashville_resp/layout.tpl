@@ -40,6 +40,11 @@
 		{/strip}
 	</head>
 	<body class="module_{$module} action_{$action}{if $masqueradeMode} masqueradeMode{/if}" id="{$module}-{$action}">
+
+{if preg_match("/^[0-4]/",$solrScope) == 1}
+<div id="schoolCode" style="display:none">{$solrScope|substr:2:3}</div>
+{/if}
+
 	{if $masqueradeMode}
 		{include file="masquerade-top-navbar.tpl"}
 	{/if}

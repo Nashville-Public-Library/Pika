@@ -109,8 +109,7 @@ expect copyCarlXExport.exp nashville.test >> ${OUTPUT_FILE}
 # JAMES STAUB turned off Lexile fetch 2019 11 06
 #cd /data/pika/; curl --remote-name --remote-time --silent --show-error --compressed --time-cond /data/pika/lexileTitles.txt https://cassini.marmot.org/lexileTitles.txt
 
-#Extract AR Data
-cd /data/pika/accelerated_reader; curl --remote-name --remote-time --silent --show-error --compressed --time-cond /data/pika/accelerated_reader/RLI-ARDataTAB.txt https://cassini.marmot.org/RLI-ARDataTAB.txt
+#Extract AR Data - moved to sideload.sh and config.pwd.ini 2020 02 03 by JAMES STAUB
 
 #Do a full extract from OverDrive just once a week to catch anything that doesn't
 #get caught in the regular extract

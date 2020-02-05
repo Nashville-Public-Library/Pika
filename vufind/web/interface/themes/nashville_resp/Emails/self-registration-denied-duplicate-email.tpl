@@ -6,4 +6,4 @@ or get account help online https://nashvillepl.libanswers.com/form.php?queue_id=
 
 or give us a call at 615-862-5800
 
-and let the librarian know you tried to get a Digital Access Card but couldn't because your name was already in our system.
+and let the librarian know you tried to get a Digital Access Card but couldn't because your email was already in our system.

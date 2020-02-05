@@ -949,6 +949,7 @@ print_r("get last request: ", $this->soapClient->__getLastRequest() . "\n\n");
 
 						return array(
 							'success' => false,
+							'message' => 'You tried to register for a Digital Access Card, but you might already have a card with Nashville Public Library. Please check your email for further instructions.',
 							'barcode' => $tempPatronID,
 						);
 					}
@@ -1007,6 +1008,7 @@ print_r("get last request: ", $this->soapClient->__getLastRequest() . "\n\n");
 
 						return array(
 							'success' => false,
+							'message' => 'You tried to register for a Digital Access Card, but you might already have a card with Nashville Public Library. Please check your email for further instructions.',
 							'barcode' => $tempPatronID,
 						);
 					}

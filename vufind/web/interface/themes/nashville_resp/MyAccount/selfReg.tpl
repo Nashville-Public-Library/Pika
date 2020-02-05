@@ -11,6 +11,8 @@
 					<p>To maintain access indefinitely, visit any <a href="https://library.nashville.org/locations">NPL branch</a> with photo ID and <a href="https://library.nashville.org/get-card#getting-a-card">proof of Davidson County residency</a>.</p>
 				{/if}
 			</div>
+		{elseif (isset($selfRegResult) && $selfRegResult.success === false && isset($selfRegResult.message))}
+			<div id="selfRegFail" class="alert alert-warning">{$selfRegResult.message}</div>
 		{else}
 			{img_assign filename='self_reg_banner.png' var=selfRegBanner}
 			{if $selfRegBanner}
@@ -33,11 +35,6 @@
 
 				{/if}
 			</div>
-			{if (isset($selfRegResult))}
-				<div id="selfRegFail" class="alert alert-warning">
-					Sorry, we were unable to create a library card for you.  You may already have an account, you may be too young to register online, or there may be an error with the information you entered. Please try again or visit the library in person (with a valid ID) so we can create a card for you.
-				</div>
-			{/if}
 			{if $captchaMessage}
 				<div id="selfRegFail" class="alert alert-warning">
 				{$captchaMessage}

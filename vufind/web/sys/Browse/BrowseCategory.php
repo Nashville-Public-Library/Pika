@@ -319,20 +319,20 @@ class BrowseCategory extends DB_DataObject{
 		$solrSort = $searchObj->getSort();
 		if ($solrSort == 'relevance'){
 			$this->defaultSort = 'relevance';
-		}elseif ($solrSort == 'popularity desc'){
+		} elseif ($solrSort == 'popularity desc'){
 			$this->defaultSort = 'popularity';
-		}elseif ($solrSort == 'days_since_added asc'){
+		} elseif ($solrSort == 'days_since_added asc' || $solrSort == 'year desc,title asc') {
 			$this->defaultSort = 'newest_to_oldest';
 			// this option is not given to select
-//		}elseif ($solrSort == 'days_since_added desc'){
+//		} elseif ($solrSort == 'days_since_added desc'){
 //			$this->defaultSort = 'oldest_to_newest';
-		}elseif ($solrSort == 'author,title'){
+		} elseif ($solrSort == 'author,title'){
 			$this->defaultSort = 'author';
-		}elseif ($solrSort == 'title,author'){
+		} elseif ($solrSort == 'title,author'){
 			$this->defaultSort = 'title';
-		}elseif ($solrSort == 'rating desc,title'){
+		} elseif ($solrSort == 'rating desc,title'){
 			$this->defaultSort = 'user_rating';
-		}else{
+		} else{
 			$this->defaultSort = 'relevance';
 		}
 		return true;

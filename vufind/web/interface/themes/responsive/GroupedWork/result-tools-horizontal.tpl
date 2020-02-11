@@ -22,6 +22,14 @@
 			{if $showFavorites == 1}
 				<div class="btn-group btn-group-sm">
 					<button onclick="return VuFind.GroupedWork.showSaveToListForm(this, '{$summId|escape}');" class="btn btn-sm ">{translate text='Add to favorites'}</button>
+				</div>	
+			{/if}
+			{*This is a placeholder until I can create a proper button to share grouped work url*}
+			{if $showEmailThis == 1}
+				<div class="btn-group btn-group-sm">
+					<button  onclick="return
+  VuFind.GroupedWork.getEmailForm(this,
+  '{$recordDriver->getPermanentId()|escape:"url"}')" class="btn btn-sm ">{translate text='Share'}</button>
 				</div>
 			{/if}
 			{/if}

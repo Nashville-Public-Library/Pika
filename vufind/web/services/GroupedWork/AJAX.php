@@ -29,6 +29,7 @@ class GroupedWork_AJAX extends AJAXHandler {
 		'getReviewForm',
 		'saveReview',
 		'getSMSForm',
+		'shareURL',
 		'getEmailForm',
 		'sendEmail',
 		'saveToList',
@@ -613,6 +614,21 @@ class GroupedWork_AJAX extends AJAXHandler {
 			'title'        => 'Share via SMS Message',
 			'modalBody'    => $interface->fetch("GroupedWork/sms-form-body.tpl"),
 			'modalButtons' => "<button class='tool btn btn-primary' onclick='VuFind.GroupedWork.sendSMS(\"{$id}\"); return false;'>Send Text</button>",
+		);
+		return $results;
+	}
+
+	function shareURL(){
+		global $interface;
+		$interface->assign('id', $id);
+		$id = $_REQUEST['id'];			 
+		require_once ROOT_DIR . '/RecordDrivers/GroupedWorkDriver.php';
+		$recordDriver = new GroupedWorkDriver($id);
+
+		$results = array(
+			'title'        => 'Share this URL',
+			'modalBody'    => $interface->fetch("GroupedWork/share-url.tpl"),
+			'modalButtons' => "<button class='tool btn btn-primary' onclick='VuFind.GroupedWork.shareURL(\"{$id}\");'>Share</button>",
 		);
 		return $results;
 	}

@@ -73,7 +73,7 @@ class CKEditor
 	 * When %CKEditor is created with the editor() method, a HTML &lt;textarea&gt; element is created,
 	 * it will be displayed to anyone with JavaScript disabled or with incompatible browser.
 	 */
-	public $textareaAttributes = array( "rows" => 8, "cols" => 60 );
+	public $textareaAttributes = array( "rows" => 20, "cols" => 100 );
 	/**
 	 * A string indicating the creation date of %CKEditor.
 	 * Do not change it unless you want to force browsers to not use previously cached version of %CKEditor.

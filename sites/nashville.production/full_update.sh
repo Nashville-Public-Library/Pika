@@ -29,7 +29,7 @@
 
 
 # this version emails script output as a round finishes
-EMAIL=james.staub@nashville.gov,bryan.n.jones@nashville.gov,pikaservers@marmot.org
+EMAIL=james.staub@nashville.gov,bryan.n.jones@nashville.gov
 PIKASERVER=nashville.production
 PIKADBNAME=vufind
 OUTPUT_FILE="/var/log/pika/${PIKASERVER}/full_update_output.log"

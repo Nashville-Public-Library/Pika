@@ -13,7 +13,7 @@
 # CONFIGURATION
 # PLEASE SET CONFLICTING PROCESSES AND PROHIBITED TIMES IN FUNCTION CALLS IN SCRIPT MAIN DO LOOP
 # this version emails script output as a round finishes
-EMAIL=James.Staub@nashville.gov,bryan.n.jones@nashville.gov,pikaservers@marmot.org
+EMAIL=James.Staub@nashville.gov,bryan.n.jones@nashville.gov
 PIKASERVER=nashville.production
 OUTPUT_FILE="/var/log/pika/${PIKASERVER}/continuous_partial_reindex_output.log"
 

@@ -1082,12 +1082,16 @@ print_r("get last request: ", $this->soapClient->__getLastRequest() . "\n\n");
 								&& stripos($response['SOAP-ENV:Body']['ns3:GenericResponse']['ns3:ResponseStatuses']['ns2:ResponseStatus']['ns2:ShortMessage'], 'Success') !== false;
 							if (!$success) {
 								$errorMessage = array();
-								if (is_array($response['SOAP-ENV:Body']['ns3:GenericResponse']['ns3:ResponseStatuses']['ns2:ResponseStatus'])) {
-									foreach($response['SOAP-ENV:Body']['ns3:GenericResponse']['ns3:ResponseStatuses']['ns2:ResponseStatus'] as $errorResponse) {
+								$statusResponses = (array) $response['SOAP-ENV:Body']['ns3:GenericResponse']['ns3:ResponseStatuses']['ns2:ResponseStatus'];
+
+								foreach ($statusResponses as $errorResponse) {
+									if (!empty($errorResponse['ns2:LongMessage'])) {
 										$errorMessage[] = $errorResponse['ns2:LongMessage'];
+									} elseif (!empty($errorResponse['ns2:ShortMessage'])) {
+										$errorMessage[] = $errorResponse['ns2:ShortMessage'];
+									} else {
+										$errorMessage[] = 'Unknown error code ' . $errorResponse['ns2:Code'];
 									}
-								} else {
-									$errorMessage[] = $response['SOAP-ENV:Body']['ns3:GenericResponse']['ns3:ResponseStatuses']['ns2:ResponseStatus']['ns2:LongMessage'];
 								}
 								if (in_array('A patron with that id already exists', $errorMessage)) {
 									global $logger;
@@ -1098,6 +1102,10 @@ print_r("get last request: ", $this->soapClient->__getLastRequest() . "\n\n");
 										$logger->log('Failed to update Variables table with new value ' . $currentPatronIDNumber . ' for "last_selfreg_patron_id" in CarlX Driver', PEAR_LOG_ERR);
 									}
 								}
+								return array(
+									'success' => false,
+									'message' => implode(' : ', $errorMessage)
+								);
 							} else {
 								$lastPatronID->value = $currentPatronIDNumber;
 								if (!$lastPatronID->update()) {

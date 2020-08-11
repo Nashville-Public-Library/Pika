@@ -67,7 +67,7 @@
 							{if $user->disableRecommendations == 0}
 								<div class="myAccountLink{if $action=="SuggestedTitles"} active{/if}"><a href="{$path}/MyAccount/SuggestedTitles">{translate text='Recommended For You'}</a></div>
 							{/if}
-<a href="https://nashvillepl.libanswers.com/form?queue_id=4528">Personalized Reading Advice</a>
+<a href="https://nashvillepl.libanswers.com/form?queue_id=4528">Library Concierge</a>
 						{/if}
 						<hr class="menu">
 						<div class="myAccountLink{if $pageTemplate=="profile.tpl"} active{/if}"><a href="{$path}/MyAccount/Profile">Account Settings</a></div>

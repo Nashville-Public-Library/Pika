@@ -13,7 +13,9 @@
 
 		<h2>{translate text='Checked Out Titles'}</h2>
 
-		{if $libraryHoursMessage}
+<div class="alert alert-warning"><strong>NOTE: All items will be quarantined before staff check them in. This will delay check-in for several days. Items will still show as checked out to your account during that time.</div>		
+
+{if $libraryHoursMessage}
 			<div class="libraryHours alert alert-success">{$libraryHoursMessage}</div>
 		{/if}
 
